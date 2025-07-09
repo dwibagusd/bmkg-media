@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3>Pilih Metode Wawancara</h3>
+<p>Silakan pilih metode wawancara yang diinginkan oleh media:</p>
+
+<div style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px;">
+    <button class="btn" onclick="openForm('telepon')">📞 Via Telepon / On Air</button>
+    <button class="btn" onclick="openForm('whatsapp')">💬 Via Chat WhatsApp</button>
+    <button class="btn" onclick="openForm('virtual')">💻 Via Virtual Meeting</button>
+    <button class="btn" onclick="openForm('maps')">🤝 Secara Langsung ke Kantor BMKG Juanda</button>
+</div>
+
+<!-- Formulir -->
+<div id="wawancaraForm" style="display:none; margin-top: 30px; background: #f2f2f2; padding: 20px; border-radius: 10px;">
+    <h4 id="formTitle">Formulir Wawancara</h4>
+    <form id="formWawancara" onsubmit="submitForm(event)">
+        <input type="hidden" name="jenis" id="jenisInput">
+        <input type="hidden" name="waktuFinal" id="waktuFinal">
+        <input type="hidden" name="linkHidden" id="linkHidden">
+
+        <label>Nama Pewawancara:</label><br>
+        <input type="text" id="nama" required><br><br>
+
+        <label>Nama Media:</label><br>
+        <input type="text" id="perusahaan" required><br><br>
+
+        <label>Topik Wawancara:</label><br>
+        <input type="text" id="topik" required><br><br>
+
+        <label>Waktu Wawancara:</label><br>
+        <label><input type="radio" name="pilihWaktu" value="manual" onchange="toggleWaktu()" checked> Tentukan waktu sendiri</label><br>
+        <div id="manualGroup">
+            <input type="datetime-local" id="waktuManual">
+        </div><br>
+
+        <label><input type="radio" name="pilihWaktu" value="sekarang" onchange="toggleWaktu()"> Sekarang juga</label><br>
+        <div id="sekarangGroup" style="display:none;">
+            <input type="text" id="waktuSekarang" readonly style="color: gray;">
+        </div><br>
+
+        <div id="linkMeetingGroup" style="display:none;">
+            <label>Link Virtual Meeting:</label><br>
+            <input type="url" id="link"><br><br>
+        </div>
+
+        <button type="submit" class="btn">Kirim</button>
+    </form>
+</div>
+
+<script>
+    let currentMethod = "";
+
+    function openForm(method) {
+        currentMethod = method;
+        document.getElementById('wawancaraForm').style.display = 'block';
+        document.getElementById('linkMeetingGroup').style.display = (method === 'virtual') ? 'block' : 'none';
+
+        const titleMap = {
+            'telepon': 'Formulir Wawancara via Telepon / On Air',
+            'whatsapp': 'Formulir Wawancara via Chat WhatsApp',
+            'virtual': 'Formulir Wawancara via Virtual Meeting',
+            'maps': 'Formulir Wawancara secara langsung ke kantor BMKG Juanda'
+        };
+        document.getElementById('formTitle').innerText = titleMap[method];
+
+        // Reset input waktu
+        document.getElementById('waktuManual').value = '';
+        document.getElementById('waktuSekarang').value = '';
+        document.querySelector('input[name=pilihWaktu][value=manual]').checked = true;
+        toggleWaktu();
+    }
+
+    function toggleWaktu() {
+        const isNow = document.querySelector('input[name=pilihWaktu]:checked').value === 'sekarang';
+        const now = new Date();
+        const pad = num => num.toString().padStart(2, '0');
+        const timestamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+        document.getElementById('manualGroup').style.display = isNow ? 'none' : 'block';
+        document.getElementById('sekarangGroup').style.display = isNow ? 'block' : 'none';
+        document.getElementById('waktuSekarang').value = isNow ? timestamp : '';
+    }
+
+    function submitForm(event) {
+        event.preventDefault();
+
+        let nama = document.getElementById('nama').value;
+        let perusahaan = document.getElementById('perusahaan').value;
+        let topik = document.getElementById('topik').value;
+
+        let waktuManual = document.getElementById('waktuManual').value;
+        let waktuSekarang = document.getElementById('waktuSekarang').value;
+        let waktu = document.querySelector('input[name=pilihWaktu]:checked').value === 'sekarang' ? waktuSekarang : waktuManual;
+
+        let jenisMap = {
+            'telepon': 'via TELEPON 0318668989',
+            'whatsapp': 'via WHATSAPP',
+            'virtual': 'via VIRTUAL MEETING',
+            'maps': 'secara langsung ke kantor BMKG Juanda https://maps.app.goo.gl/REPzD3qeT3mGK9rq9'
+        };
+        let jenis = jenisMap[currentMethod];
+
+        let link = document.getElementById('link')?.value || '';
+
+        // Buat token: nama_media + "_" + waktu log (tanpa spasi)
+        const now = new Date();
+        const pad = num => num.toString().padStart(2, '0');
+        const timestamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const mediaToken = perusahaan.replace(/\s+/g, '');
+        const token = `${mediaToken}_${timestamp}`;
+
+        let pesan = `Halo Admin BMKG,\nSaya ingin melakukan wawancara ${jenis} dengan detail berikut:\n` +
+                    `Nama Pewawancara: ${nama}\n` +
+                    `Nama Media: ${perusahaan}\n` +
+                    `Topik Wawancara: ${topik}\n` +
+                    `Waktu: ${waktu}`;
+
+        if (link && currentMethod === 'virtual') {
+            pesan += `\nLink Meeting: ${link}`;
+        }
+
+        if (confirm("Apakah Anda yakin data sudah benar dan akan direkam dalam log?")) {
+            // Langsung buka WhatsApp sebelum fetch, agar tidak diblokir browser
+            window.open(`https://wa.me/62895800300011?text=${encodeURIComponent(pesan)}`, '_blank');
+
+            const formData = new FormData();
+            formData.append('nama', nama);
+            formData.append('perusahaan', perusahaan);
+            formData.append('waktu', waktu);
+            formData.append('jenis', jenis);
+            formData.append('link', link);
+            formData.append('topik', topik);
+            formData.append('token', token);
+
+            fetch('/log_permohonan', {
+                method: 'POST',
+                body: formData
+            }).then(() => {
+                alert("Permohonan berhasil dikirim dan dicatat.");
+            });
+        }
+    }
+</script>
+
+{% endblock %}
