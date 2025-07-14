@@ -13,6 +13,8 @@ from hashlib import sha256
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL')  # Wajib!
+app.config['ADMIN_PASSWORD'] = os.environ.get('ADMIN_PASSWORD')  # Wajib!
+app.config['USER_PASSWORD'] = os.environ.get('USER_PASSWORD')  # Wajib!
 app.config['UPLOAD_FOLDER'] = 'static/uploads/'
 app.config['ALLOWED_EXTENSIONS'] = {'wav', 'mp3', 'ogg'}
 app.config['WHATSAPP_ADMIN'] = os.environ.get('WHATSAPP_ADMIN')
@@ -143,8 +145,8 @@ def init_db():
         ''')
         
         # Insert admin user dengan password yang di-hash dengan benar
-        admin_password = os.environ.get('ADMIN_PASSWORD', 'password123')
-        user_password = os.environ.get('USER_PASSWORD', 'user123')
+        admin_password = os.environ.get['ADMIN_PASSWORD']
+        user_password = os.environ.get['USER_PASSWORD']
         
         cursor.execute('''
             INSERT INTO users (username, password, role) 
@@ -425,27 +427,31 @@ def login():
         return redirect(url_for('index'))
     
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
         try:
-            db = get_db()
-            cursor = db.cursor()
-            cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
-            user = cursor.fetchone()
+            username = request.form['username']
+            password = request.form['password']
             
-            if user:
-                if check_password_hash(user[2], password):
-                    session['user'] = user[1]
-                    flash('Login berhasil!', 'success')
+            with get_db().cursor() as cur:
+                cur.execute(
+                    "SELECT username, password, role FROM users WHERE username = %s", 
+                    (username,)
+                )
+                user = cur.fetchone()
+                
+                if user and check_password_hash(user[1], password):
+                    session.update({
+                        'user': user[0],
+                        'role': user[2]
+                    })
                     return redirect(url_for('index'))
-                else:
-                    flash('Password salah', 'danger')
-            else:
-                flash('Username tidak ditemukan', 'danger')
+                
+            flash('Invalid username or password', 'danger')
+            
+        except KeyError:
+            flash('Please fill all fields', 'danger')
         except Exception as e:
             app.logger.error(f"Login error: {str(e)}")
-            flash('Terjadi kesalahan sistem', 'danger')
+            flash('System error during login', 'danger')
     
     return render_template('login.html')
 
