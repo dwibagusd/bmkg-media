@@ -35,11 +35,11 @@ def get_db():
         # db_url = db_url.replace('postgres://', 'postgresql://')
         
         # Tambahkan parameter koneksi
-    #     g.db = psycopg2.connect(
-    #         db_url,
-    #         sslmode='require',
-    #         connect_timeout=10  # Timeout 10 detik
-    #     )
+        g.db = psycopg2.connect(
+            db_url,
+            sslmode='require',
+            connect_timeout=10  # Timeout 10 detik
+        )
     return g.db
 
 @app.teardown_appcontext
