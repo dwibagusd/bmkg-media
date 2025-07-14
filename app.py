@@ -7,8 +7,12 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
 import psycopg2
+from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 from hashlib import sha256  
+
+# Load environment variables
+load_dotenv()  # Untuk development lokal, di Vercel tidak diperlukan
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -31,6 +35,16 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
+# Konfigurasi koneksi database
+def get_db_config():
+    return {
+        'user': os.getenv('DB_USER', os.environ.get('DB_USER')),
+        'password': os.getenv('DB_PASSWORD', os.environ.get('DB_PASSWORD')),
+        'host': os.getenv('DB_HOST', os.environ.get('DB_HOST')),
+        'port': os.getenv('DB_PORT', os.environ.get('DB_PORT', '5432')),
+        'dbname': os.getenv('DB_NAME', os.environ.get('DB_NAME'))
+    }
+    
 # Konfigurasi database PostgreSQL
 def get_db():
     if 'db' not in g:
@@ -144,15 +158,18 @@ def init_db():
         )
         ''')
         
-        # Insert admin user dengan password yang di-hash dengan benar
-        admin_password = os.environ.get['ADMIN_PASSWORD']
-        user_password = os.environ.get['USER_PASSWORD']
+        # Gunakan password dari environment variables
+        admin_pass = os.getenv('ADMIN_PASSWORD', os.environ.get('ADMIN_PASSWORD'))
+        user_pass = os.getenv('USER_PASSWORD', os.environ.get('USER_PASSWORD'))
+
+        if not admin_pass or not user_pass:
+            raise RuntimeError("Admin or user password not set in environment")
         
         cursor.execute('''
             INSERT INTO users (username, password, role) 
             VALUES (%s, %s, %s)
             ON CONFLICT (username) DO NOTHING
-        ''', ('admin', generate_password_hash(admin_password), 'admin'))
+        ''', ('admin', generate_password_hash(admin_pass, method='pbkdf2:sha256'), 'admin'))
         
         cursor.execute('''
             INSERT INTO users (username, password, role) 
