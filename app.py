@@ -27,7 +27,7 @@ def allowed_file(filename):
 def get_db():
     if 'db' not in g:
         # Pastikan menggunakan URL dari environment variable
-        db_url = os.environ.get('DATABASE_URL','postgresql://postgres:k7LrGGHlt6TPfSYR@db.mzvyhljmcfcmuwudllpq.supabase.co:5432/postgres')
+        db_url = os.environ.get('DATABASE_URL')
         
         if not db_url:
             raise RuntimeError("DATABASE_URL environment variable not set")
