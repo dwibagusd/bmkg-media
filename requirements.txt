@@ -4,3 +4,4 @@ python-dotenv==1.0.0
 waitress==2.1.2
 psycopg2-binary==2.9.9
 reportlab==4.0.4
+python-dotenv==1.0.0
