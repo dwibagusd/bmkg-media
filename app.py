@@ -32,7 +32,7 @@ def get_db():
             raise RuntimeError("DATABASE_URL environment variable not set")
         
         # Konversi URL untuk kompatibilitas
-        db_url = db_url.replace('postgres://', 'postgresql://')
+        # db_url = db_url.replace('postgres://', 'postgresql://')
         
         # Tambahkan parameter koneksi
         g.db = psycopg2.connect(
