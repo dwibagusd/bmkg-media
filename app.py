@@ -1,11 +1,8 @@
-# Import Library
 from werkzeug.utils import secure_filename
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
-from datetime import datetime, timedelta
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g
+from datetime import datetime
 import os
-import json
 import random
-from werkzeug.utils import secure_filename
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
@@ -13,10 +10,10 @@ import psycopg2
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'
+app.secret_key = os.environ.get('SECRET_KEY', 'supersecretkey')
 app.config['UPLOAD_FOLDER'] = 'static/uploads/'
 app.config['ALLOWED_EXTENSIONS'] = {'wav', 'mp3', 'ogg'}
-app.config['WHATSAPP_ADMIN'] = '6281932689046'  # Nomor WhatsApp admin dengan kode negara
+app.config['WHATSAPP_ADMIN'] = os.environ.get('WHATSAPP_ADMIN', '6281932689046')
 app.config['WHATSAPP_DEFAULT_MSG'] = 'Halo BMKG, saya ingin konfirmasi permohonan wawancara dengan token: '
 
 # Buat folder unggahan
@@ -39,7 +36,7 @@ def close_connection(exception):
         db.close()
 
 def init_db():
-    with app.app_context():
+    try:
         db = get_db()
         cursor = db.cursor()
         
@@ -82,25 +79,25 @@ def init_db():
         ''')
         
         # Perbaikan password dengan hashing
-        hashed_admin_pw = generate_password_hash('password123')
-        hashed_user_pw = generate_password_hash('user123')
+        hashed_admin_pw = generate_password_hash(os.environ.get('ADMIN_PASSWORD', 'password123'))
+        hashed_user_pw = generate_password_hash(os.environ.get('USER_PASSWORD', 'user123'))
         
-        try:
-            cursor.execute('''
-                INSERT INTO users (username, password, role) 
-                VALUES (%s, %s, %s)
-                ON CONFLICT (username) DO NOTHING
-            ''', ('admin', hashed_admin_pw, 'admin'))
-            
-            cursor.execute('''
-                INSERT INTO users (username, password, role) 
-                VALUES (%s, %s, %s)
-                ON CONFLICT (username) DO NOTHING
-            ''', ('user1', hashed_user_pw, 'user'))
-        except Exception as e:
-            print(f"Error inserting users: {e}")
+        cursor.execute('''
+            INSERT INTO users (username, password, role) 
+            VALUES (%s, %s, %s)
+            ON CONFLICT (username) DO NOTHING
+        ''', ('admin', hashed_admin_pw, 'admin'))
+        
+        cursor.execute('''
+            INSERT INTO users (username, password, role) 
+            VALUES (%s, %s, %s)
+            ON CONFLICT (username) DO NOTHING
+        ''', ('user1', hashed_user_pw, 'user'))
         
         db.commit()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Error initializing database: {str(e)}")
 
 # =============================================================== #
 # Data contoh
@@ -256,7 +253,7 @@ def recorder():
         cursor.execute('SELECT role FROM users WHERE username = %s', (session['user'],))
         user = cursor.fetchone()
         
-        if not user or user[0] != 'admin':  # Perbaikan indeks untuk tuple
+        if not user or user[0] != 'admin':
             flash('Unauthorized access', 'danger')
             return redirect(url_for('index'))
         
@@ -332,7 +329,7 @@ def generate_pdf(recording_id):
         p.drawString(100, 750, "Laporan Wawancara BMKG")
         
         p.setFont("Helvetica", 12)
-        p.drawString(100, 720, f"Token: {recording[1]}")  # Perbaikan indeks
+        p.drawString(100, 720, f"Token: {recording[1]}")
         p.drawString(100, 700, f"Tanggal: {recording[4]}")
         p.drawString(100, 680, f"Pewawancara: {recording[3]}")
         p.drawString(100, 660, f"Narasumber: {recording[2]}")
@@ -341,7 +338,6 @@ def generate_pdf(recording_id):
         text = p.beginText(100, 600)
         text.setFont("Helvetica", 10)
         
-        # Perbaikan: recording[6] untuk transcript
         transcript = recording[6] or ''
         for line in transcript.split('\n'):
             for part in [line[i:i+80] for i in range(0, len(line), 80)]:
@@ -375,9 +371,8 @@ def login():
             user = cursor.fetchone()
             
             if user:
-                # user[2] adalah password
                 if check_password_hash(user[2], password):
-                    session['user'] = user[1]  # user[1] adalah username
+                    session['user'] = user[1]
                     flash('Login berhasil!', 'success')
                     return redirect(url_for('index'))
                 else:
@@ -396,6 +391,10 @@ def logout():
     session.pop('user', None)
     return redirect(url_for('index'))
 
-if __name__ == "__main__":
+# Inisialisasi database saat aplikasi dimulai
+with app.app_context():
     init_db()
-    app.run(debug=True)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
