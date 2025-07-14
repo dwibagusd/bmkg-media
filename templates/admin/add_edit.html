@@ -1,0 +1,125 @@
+<!-- templates/admin/add_edit.html -->
+{% extends "base.html" %} {% block title %}{% if interview %}Edit Interview{% else %}Add Interview{% endif %}{% endblock %} {% block content %}
+<div class="admin-container">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Sidebar -->
+      <div class="col-lg-2 col-md-3 admin-sidebar">
+        <div class="d-flex flex-column align-items-center py-4 mb-4">
+          <div class="bg-white rounded-circle p-1 mb-2">
+            <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" class="rounded-circle" width="80" alt="Admin" />
+          </div>
+          <h5 class="text-white mb-0">Admin User</h5>
+          <small class="text-white-50">Administrator</small>
+        </div>
+
+        <ul class="nav flex-column">
+          <li class="nav-item">
+            <a class="nav-link" href="/admin/dashboard"> <i class="bi bi-speedometer2 me-2"></i> Dashboard </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="/admin/interview/add"> <i class="bi bi-plus-circle me-2"></i> Add Interview </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#"> <i class="bi bi-people me-2"></i> Interviewees </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#"> <i class="bi bi-gear me-2"></i> Settings </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/admin/logout"> <i class="bi bi-box-arrow-right me-2"></i> Logout </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Main Content -->
+      <div class="col-lg-10 col-md-9">
+        <div class="p-4">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">{% if interview %}Edit Interview{% else %}Add New Interview{% endif %}</h1>
+            <a href="/admin/dashboard" class="btn btn-outline-secondary"> <i class="bi bi-arrow-left me-1"></i> Back to Dashboard </a>
+          </div>
+
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <form method="POST" action="{% if interview %}/admin/interview/edit/{{ interview.id }}{% else %}/admin/interview/add{% endif %}">
+                <div class="row">
+                  <div class="col-md-8">
+                    <div class="mb-3">
+                      <label for="title" class="form-label">Interview Title</label>
+                      <input type="text" class="form-control" id="title" name="title" value="{% if interview %}{{ interview.title }}{% endif %}" required />
+                    </div>
+
+                    <div class="row mb-3">
+                      <div class="col-md-6">
+                        <label for="interviewee" class="form-label">Interviewee Name</label>
+                        <input type="text" class="form-control" id="interviewee" name="interviewee" value="{% if interview %}{{ interview.interviewee }}{% endif %}" required />
+                      </div>
+                      <div class="col-md-6">
+                        <label for="position" class="form-label">Position</label>
+                        <input type="text" class="form-control" id="position" name="position" value="{% if interview %}{{ interview.position }}{% endif %}" required />
+                      </div>
+                    </div>
+
+                    <div class="mb-3">
+                      <label for="summary" class="form-label">Summary</label>
+                      <textarea class="form-control" id="summary" name="summary" rows="3" required>{% if interview %}{{ interview.summary }}{% endif %}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                      <label for="content" class="form-label">Content</label>
+                      <textarea class="form-control" id="content" name="content" rows="8" required>{% if interview %}{{ interview.content }}{% endif %}</textarea>
+                    </div>
+                  </div>
+
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label for="date" class="form-label">Date</label>
+                      <input type="date" class="form-control" id="date" name="date" value="{% if interview %}{{ interview.date }}{% else %}{{ datetime.now().strftime('%Y-%m-%d') }}{% endif %}" required />
+                    </div>
+
+                    <div class="mb-4">
+                      <label for="image" class="form-label">Image URL</label>
+                      <input type="text" class="form-control" id="image" name="image" value="{% if interview %}{{ interview.image }}{% endif %}" placeholder="Leave blank for default" />
+                    </div>
+
+                    <div class="card bg-light p-3 mb-4">
+                      <h6 class="mb-3">Featured Image</h6>
+                      <div class="text-center mb-3">
+                        <img src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" id="image-preview" class="img-fluid rounded" alt="Preview" />
+                      </div>
+                      <div class="d-grid">
+                        <button type="button" class="btn btn-outline-secondary"><i class="bi bi-upload me-1"></i> Upload Image</button>
+                      </div>
+                    </div>
+
+                    <div class="d-grid">
+                      <button type="submit" class="btn btn-primary btn-lg">{% if interview %}Update Interview{% else %}Create Interview{% endif %}</button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Simple image preview for admin
+  document.addEventListener("DOMContentLoaded", function () {
+    const imageInput = document.getElementById("image");
+    const imagePreview = document.getElementById("image-preview");
+
+    imageInput.addEventListener("input", function () {
+      if (this.value) {
+        imagePreview.src = this.value;
+      } else {
+        imagePreview.src = "https://images.unsplash.com/photo-1551836022-d5d88e9218df?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80";
+      }
+    });
+  });
+</script>
+{% endblock %}

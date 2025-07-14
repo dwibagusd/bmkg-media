@@ -1,0 +1,70 @@
+<!-- templates/interviews.html -->
+{% extends "base.html" %} {% block title %}All Interviews{% endblock %} {% block content %}
+<section class="container my-5">
+  <div class="text-center mb-5">
+    <h1 class="display-5 fw-bold mb-3">Our Interviews</h1>
+    <p class="lead text-muted">Explore our collection of in-depth conversations with industry leaders and innovators.</p>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <form class="d-flex">
+        <input type="text" class="form-control me-2" placeholder="Search interviews..." />
+        <button class="btn btn-outline-primary" type="submit">Search</button>
+      </form>
+    </div>
+    <div class="col-md-6 text-md-end mt-2 mt-md-0">
+      <select class="form-select d-inline-block w-auto">
+        <option selected>All Categories</option>
+        <option>Technology</option>
+        <option>Business</option>
+        <option>Science</option>
+        <option>Arts</option>
+      </select>
+      <select class="form-select d-inline-block w-auto ms-2">
+        <option selected>Newest First</option>
+        <option>Oldest First</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row">
+    {% for interview in interviews %}
+    <div class="col-lg-6 mb-4">
+      <div class="interview-card card h-100">
+        <div class="row g-0">
+          <div class="col-md-4">
+            <img src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" class="img-fluid rounded-start h-100" alt="{{ interview.title }}" style="object-fit: cover" />
+          </div>
+          <div class="col-md-8">
+            <div class="card-body">
+              <div class="mb-2">
+                <span class="interview-tag">Technology</span>
+                <span class="interview-tag">Leadership</span>
+              </div>
+              <h5 class="card-title">{{ interview.title }}</h5>
+              <p class="text-muted mb-2">{{ interview.interviewee }} | {{ interview.position }}</p>
+              <p class="card-text">{{ interview.summary }}</p>
+              <div class="d-flex justify-content-between align-items-center mt-auto">
+                <a href="/interview/{{ interview.id }}" class="btn btn-sm btn-outline-primary">Read Interview</a>
+                <small class="text-muted">{{ interview.date }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <nav class="mt-5">
+    <ul class="pagination justify-content-center">
+      <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
+      <li class="page-item active"><a class="page-link" href="#">1</a></li>
+      <li class="page-item"><a class="page-link" href="#">2</a></li>
+      <li class="page-item"><a class="page-link" href="#">3</a></li>
+      <li class="page-item"><a class="page-link" href="#">Next</a></li>
+    </ul>
+  </nav>
+</section>
+{% endblock %}

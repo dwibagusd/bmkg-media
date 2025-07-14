@@ -1,0 +1,35 @@
+<!-- templates/admin/login.html -->
+{% extends "base.html" %} {% block title %}Admin Login{% endblock %} {% block content %}
+<section class="admin-container">
+  <div class="container">
+    <div class="row justify-content-center align-items-center" style="min-height: 100vh">
+      <div class="col-md-6">
+        <div class="card shadow-sm">
+          <div class="card-body p-5">
+            <div class="text-center mb-5">
+              <h2 class="fw-bold">Admin Login</h2>
+              <p class="text-muted">Access the Insight Interviews content management system</p>
+            </div>
+
+            <form method="POST" action="/admin/login">
+              <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" required />
+              </div>
+
+              <div class="mb-4">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" name="password" required />
+              </div>
+
+              <div class="d-grid mb-3">
+                <button type="submit" class="btn btn-primary btn-lg">Sign In</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

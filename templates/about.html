@@ -1,0 +1,134 @@
+<!-- templates/about.html -->
+{% extends "base.html" %} {% block title %}About Us{% endblock %} {% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 mx-auto text-center">
+        <h1 class="display-4 fw-bold mb-4">About Insight Interviews</h1>
+        <p class="lead">We believe in the power of conversation to inspire change and foster understanding.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Mission Section -->
+<section class="container my-5 py-5">
+  <div class="row">
+    <div class="col-lg-6 mb-5 mb-lg-0">
+      <h2 class="section-title mb-4">Our Mission</h2>
+      <p class="lead">To bring meaningful conversations to curious minds around the world.</p>
+      <p>
+        At Insight Interviews, we're dedicated to exploring ideas, experiences, and perspectives that shape our world. We go beyond surface-level discussions to uncover the stories, insights, and wisdom that can inspire and educate our
+        audience.
+      </p>
+      <p>We believe that by sharing diverse voices and experiences, we can foster greater understanding, spark innovation, and contribute to positive change in society.</p>
+    </div>
+    <div class="col-lg-6">
+      <img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" class="img-fluid rounded shadow" alt="Our Team" />
+    </div>
+  </div>
+</section>
+
+<!-- Values Section -->
+<section class="bg-light py-5 my-5">
+  <div class="container py-5">
+    <div class="text-center mb-5">
+      <h2 class="section-title">Our Core Values</h2>
+      <p class="lead text-muted">Principles that guide everything we do</p>
+    </div>
+
+    <div class="row">
+      <div class="col-md-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-4 text-center">
+            <div class="bg-primary text-white rounded-circle p-3 mb-4 mx-auto" style="width: 70px; height: 70px">
+              <i class="bi bi-search-heart" style="font-size: 1.8rem"></i>
+            </div>
+            <h4 class="card-title">Curiosity</h4>
+            <p class="card-text">We approach every conversation with an open mind and a genuine desire to learn.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-4 text-center">
+            <div class="bg-primary text-white rounded-circle p-3 mb-4 mx-auto" style="width: 70px; height: 70px">
+              <i class="bi bi-heart" style="font-size: 1.8rem"></i>
+            </div>
+            <h4 class="card-title">Integrity</h4>
+            <p class="card-text">We conduct our interviews with honesty, transparency, and respect for our subjects.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-4 text-center">
+            <div class="bg-primary text-white rounded-circle p-3 mb-4 mx-auto" style="width: 70px; height: 70px">
+              <i class="bi bi-lightbulb" style="font-size: 1.8rem"></i>
+            </div>
+            <h4 class="card-title">Innovation</h4>
+            <p class="card-text">We constantly seek new formats and approaches to make interviews more engaging.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Team Section -->
+<section class="container my-5 py-5">
+  <div class="text-center mb-5">
+    <h2 class="section-title">Meet Our Team</h2>
+    <p class="lead text-muted">The passionate individuals behind Insight Interviews</p>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4 mb-4">
+      <div class="card border-0 text-center">
+        <img
+          src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+          class="card-img-top rounded-circle mx-auto mt-4"
+          style="width: 150px; height: 150px; object-fit: cover"
+          alt="Team Member"
+        />
+        <div class="card-body">
+          <h4 class="card-title">Sarah Johnson</h4>
+          <p class="text-primary">Editor-in-Chief</p>
+          <p class="card-text">Sarah has over 15 years of experience in journalism and content creation.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-4">
+      <div class="card border-0 text-center">
+        <img
+          src="https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+          class="card-img-top rounded-circle mx-auto mt-4"
+          style="width: 150px; height: 150px; object-fit: cover"
+          alt="Team Member"
+        />
+        <div class="card-body">
+          <h4 class="card-title">Michael Chen</h4>
+          <p class="text-primary">Creative Director</p>
+          <p class="card-text">Michael brings innovative design thinking to our interview formats.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-4">
+      <div class="card border-0 text-center">
+        <img
+          src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+          class="card-img-top rounded-circle mx-auto mt-4"
+          style="width: 150px; height: 150px; object-fit: cover"
+          alt="Team Member"
+        />
+        <div class="card-body">
+          <h4 class="card-title">Emma Rodriguez</h4>
+          <p class="text-primary">Senior Interviewer</p>
+          <p class="card-text">Emma specializes in technology and innovation interviews.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

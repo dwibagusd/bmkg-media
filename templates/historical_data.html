@@ -1,0 +1,69 @@
+<!-- templates/historical_data.html -->
+{% extends "base.html" %} {% block title %}Data Historis Wawancara{% endblock %} {% block content %}
+<section class="container my-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="display-6 fw-bold mb-0">Data Historis Wawancara</h1>
+    <a href="/request-interview" class="btn btn-primary"> <i class="bi bi-plus me-1"></i> Ajukan Baru </a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tanggal Permohonan</th>
+              <th>Pewawancara</th>
+              <th>Media</th>
+              <th>Topik</th>
+              <th>Metode</th>
+              <th>Status</th>
+              <th>Token</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for request in historical_data %}
+            <tr>
+              <td>{{ request.id }}</td>
+              <td>{{ request.request_date }}</td>
+              <td>{{ request.interviewer_name }}</td>
+              <td>{{ request.media_name }}</td>
+              <td>{{ request.topic[:30] }}{% if request.topic|length > 30 %}...{% endif %}</td>
+              <td>
+                {% if request.method == 'telepon' %}
+                <span class="badge bg-primary">Telepon</span>
+                {% elif request.method == 'whatsapp' %}
+                <span class="badge bg-success">WhatsApp</span>
+                {% elif request.method == 'langsung' %}
+                <span class="badge bg-warning text-dark">Tatap Muka</span>
+                {% else %}
+                <span class="badge bg-danger">Virtual</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if request.status == 'Pending' %}
+                <span class="badge bg-secondary">Pending</span>
+                {% elif request.status == 'Approved' %}
+                <span class="badge bg-success">Disetujui</span>
+                {% else %}
+                <span class="badge bg-danger">Ditolak</span>
+                {% endif %}
+              </td>
+              <td><code>{{ request.token }}</code></td>
+              <td>
+                {% if request.has_recording %}
+                <i class="bi bi-check-circle text-success"></i>
+                {% else %}
+                <i class="bi bi-x-circle text-danger"></i>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

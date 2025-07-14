@@ -1,0 +1,59 @@
+<!-- templates/press_release_detail.html -->
+{% extends "base.html" %} {% block title %}{{ release.title }}{% endblock %} {% block content %}
+<section class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="/">Beranda</a></li>
+          <li class="breadcrumb-item"><a href="#press-releases">Press Release</a></li>
+          <li class="breadcrumb-item active" aria-current="page">{{ release.title|truncate(30) }}</li>
+        </ol>
+      </nav>
+
+      <article>
+        <div class="text-center mb-5">
+          <span class="badge bg-primary">Press Release</span>
+          <h1 class="display-6 fw-bold mt-3 mb-3">{{ release.title }}</h1>
+          <p class="text-muted">Diterbitkan pada {{ release.date }} oleh BMKG Media Center</p>
+        </div>
+
+        <div class="mb-5">
+          <img src="https://www.bmkg.go.id/asset/img/infografis/info-cuaca-jabodetabek.jpg" class="img-fluid rounded mb-4" alt="{{ release.title }}" />
+        </div>
+
+        <div class="content mb-5">
+          <p class="lead">{{ release.summary }}</p>
+
+          <p>{{ release.content }}</p>
+
+          <p>
+            BMKG terus berkomitmen untuk memberikan informasi meteorologi, klimatologi, dan geofisika yang akurat dan tepat waktu kepada masyarakat. Dengan dukungan teknologi terkini, BMKG mampu memberikan peringatan dini untuk berbagai
+            potensi bencana alam yang terkait dengan cuaca, iklim, dan gempa bumi.
+          </p>
+
+          <blockquote class="blockquote my-5 p-4 bg-light border-start border-4 border-primary">
+            <p class="mb-0">"Keakuratan informasi cuaca dan iklim sangat penting untuk mendukung berbagai sektor kehidupan masyarakat dan pembangunan nasional."</p>
+            <footer class="blockquote-footer mt-2">Kepala BMKG</footer>
+          </blockquote>
+
+          <p>Masyarakat diimbau untuk selalu memantau informasi terkini dari BMKG melalui berbagai kanal komunikasi yang tersedia, termasuk website resmi BMKG, media sosial, dan aplikasi mobile.</p>
+        </div>
+
+        <div class="border-top border-bottom py-4 my-5">
+          <div class="d-flex align-items-center">
+            <div class="flex-shrink-0">
+              <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" class="rounded-circle" width="60" alt="BMKG Media Officer" />
+            </div>
+            <div class="flex-grow-1 ms-3">
+              <h5 class="mb-0">Tim Media BMKG</h5>
+              <p class="text-muted mb-1">Media Officer</p>
+              <p class="mb-0">Untuk informasi lebih lanjut, hubungi media@bmkg.go.id atau call center BMKG.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+{% endblock %}

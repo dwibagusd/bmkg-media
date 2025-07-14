@@ -1,0 +1,134 @@
+<!-- templates/request_interview.html -->
+{% extends "base.html" %} {% block title %}Permohonan Wawancara{% endblock %} {% block content %}
+<section class="container my-5">
+  <div id="whatsapp-info" class="alert alert-info mt-3" style="display: none">
+    <i class="bi bi-whatsapp me-2"></i>
+    Anda akan diarahkan ke chat WhatsApp admin setelah mengisi formulir
+  </div>
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold mb-3">Permohonan Wawancara</h1>
+        <p class="lead text-muted">Silakan lengkapi formulir berikut untuk mengajukan permohonan wawancara dengan narasumber BMKG</p>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+          <form method="POST" action="/request-interview">
+            <div class="mb-4">
+              <h5 class="mb-3">Metode Wawancara</h5>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="method-option" data-method="telepon">
+                    <div class="d-flex align-items-center">
+                      <div class="me-3">
+                        <i class="bi bi-telephone text-primary" style="font-size: 2rem"></i>
+                      </div>
+                      <div>
+                        <h6 class="mb-1">Via Telepon</h6>
+                        <p class="small text-muted mb-0">Wawancara melalui sambungan telepon</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="method-option" data-method="whatsapp">
+                    <div class="d-flex align-items-center">
+                      <div class="me-3">
+                        <i class="bi bi-whatsapp text-success" style="font-size: 2rem"></i>
+                      </div>
+                      <div>
+                        <h6 class="mb-1">Chat WhatsApp</h6>
+                        <p class="small text-muted mb-0">Wawancara melalui chat WhatsApp</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="method-option" data-method="langsung">
+                    <div class="d-flex align-items-center">
+                      <div class="me-3">
+                        <i class="bi bi-person text-warning" style="font-size: 2rem"></i>
+                      </div>
+                      <div>
+                        <h6 class="mb-1">Secara Langsung</h6>
+                        <p class="small text-muted mb-0">Wawancara tatap muka di kantor BMKG</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="method-option" data-method="virtual">
+                    <div class="d-flex align-items-center">
+                      <div class="me-3">
+                        <i class="bi bi-camera-video text-danger" style="font-size: 2rem"></i>
+                      </div>
+                      <div>
+                        <h6 class="mb-1">Virtual Meeting</h6>
+                        <p class="small text-muted mb-0">Wawancara melalui Zoom/Google Meet</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <input type="hidden" id="method" name="method" required />
+            </div>
+
+            <div class="mb-3">
+              <label for="interviewer_name" class="form-label">Nama Pewawancara</label>
+              <input type="text" class="form-control" id="interviewer_name" name="interviewer_name" required />
+            </div>
+
+            <div class="mb-3">
+              <label for="media_name" class="form-label">Nama Media/Institusi</label>
+              <input type="text" class="form-control" id="media_name" name="media_name" required />
+            </div>
+
+            <div class="mb-3">
+              <label for="topic" class="form-label">Topik Wawancara</label>
+              <textarea class="form-control" id="topic" name="topic" rows="3" required></textarea>
+            </div>
+
+            <div class="mb-3">
+              <label for="datetime" class="form-label">Waktu yang Diminta</label>
+              <input type="datetime-local" class="form-control" id="datetime" name="datetime" required />
+            </div>
+
+            <div class="mb-4" id="meeting-link-field" style="display: none">
+              <label for="meeting_link" class="form-label">Link Virtual Meeting</label>
+              <input type="url" class="form-control" id="meeting_link" name="meeting_link" placeholder="https://zoom.us/j/..." />
+              <small class="text-muted">Harap menyertakan link meeting beserta password jika diperlukan</small>
+            </div>
+
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary btn-lg">Ajukan Permohonan</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="mt-4 text-center">
+        <p class="text-muted">Permohonan wawancara akan diproses dalam 1-2 hari kerja. Anda akan menerima konfirmasi melalui email.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // ... kode existing method selection ...
+
+    // Update tampilan saat memilih WhatsApp
+    document.querySelector('[data-method="whatsapp"]').addEventListener("click", function () {
+      document.getElementById("whatsapp-info").style.display = "block";
+    });
+
+    // Sembunyikan info WhatsApp untuk metode lain
+    document.querySelectorAll('[data-method]:not([data-method="whatsapp"])').forEach((el) => {
+      el.addEventListener("click", function () {
+        document.getElementById("whatsapp-info").style.display = "none";
+      });
+    });
+  });
+</script>
+{% endblock %}

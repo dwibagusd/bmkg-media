@@ -1,0 +1,109 @@
+<!-- templates/interview_detail.html -->
+{% extends "base.html" %} {% block title %}{{ interview.title }}{% endblock %} {% block content %}
+<section class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="/">Home</a></li>
+          <li class="breadcrumb-item"><a href="/interviews">Interviews</a></li>
+          <li class="breadcrumb-item active" aria-current="page">{{ interview.title|truncate(30) }}</li>
+        </ol>
+      </nav>
+
+      <article>
+        <div class="text-center mb-5">
+          <span class="interview-tag">Technology</span>
+          <span class="interview-tag">Innovation</span>
+          <h1 class="display-5 fw-bold mt-3 mb-3">{{ interview.title }}</h1>
+          <p class="lead text-muted">An interview with {{ interview.interviewee }}, {{ interview.position }}</p>
+          <p class="text-muted">Published on {{ interview.date }}</p>
+        </div>
+
+        <div class="mb-5">
+          <img src="https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" class="img-fluid rounded mb-4" alt="{{ interview.interviewee }}" />
+        </div>
+
+        <div class="interview-content mb-5">
+          <p class="lead">{{ interview.summary }}</p>
+
+          <p>{{ interview.content }}</p>
+
+          <p>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris. Vivamus hendrerit arcu sed erat molestie vehicula. Sed auctor neque eu tellus rhoncus ut eleifend nibh porttitor. Ut in nulla enim. Phasellus
+            molestie magna non est bibendum non venenatis nisl tempor. Suspendisse dictum feugiat nisl ut dapibus.
+          </p>
+
+          <blockquote class="blockquote my-5 p-4 bg-light border-start border-4 border-primary">
+            <p class="mb-0">"The most important aspect of innovation is not the idea itself, but the execution and persistence to see it through."</p>
+            <footer class="blockquote-footer mt-2">{{ interview.interviewee }}</footer>
+          </blockquote>
+
+          <p>
+            Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Donec velit neque, auctor sit amet aliquam vel, ullamcorper sit amet ligula. Proin eget tortor risus. Curabitur aliquet quam id dui posuere
+            blandit. Vivamus magna justo, lacinia eget consectetur sed, convallis at tellus.
+          </p>
+
+          <p>
+            Praesent sapien massa, convallis a pellentesque nec, egestas non nisi. Curabitur arcu erat, accumsan id imperdiet et, porttitor at sem. Curabitur aliquet quam id dui posuere blandit. Curabitur non nulla sit amet nisl tempus
+            convallis quis ac lectus.
+          </p>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-5">
+          <div class="d-flex align-items-center">
+            <div class="bg-light rounded-circle p-2 me-3">
+              <i class="bi bi-share text-primary" style="font-size: 1.5rem"></i>
+            </div>
+            <div>
+              <h5 class="mb-0">Share this interview</h5>
+              <div class="mt-2">
+                <a href="#" class="text-dark me-3"><i class="bi bi-twitter"></i></a>
+                <a href="#" class="text-dark me-3"><i class="bi bi-facebook"></i></a>
+                <a href="#" class="text-dark me-3"><i class="bi bi-linkedin"></i></a>
+                <a href="#" class="text-dark"><i class="bi bi-link-45deg"></i></a>
+              </div>
+            </div>
+          </div>
+          <div>
+            <button class="btn btn-outline-primary"><i class="bi bi-bookmark"></i> Save</button>
+          </div>
+        </div>
+
+        <div class="border-top border-bottom py-4 my-5">
+          <div class="d-flex align-items-center">
+            <div class="flex-shrink-0">
+              <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" class="rounded-circle" width="60" alt="Author" />
+            </div>
+            <div class="flex-grow-1 ms-3">
+              <h5 class="mb-0">Jane Smith</h5>
+              <p class="text-muted mb-1">Senior Writer at Insight Interviews</p>
+              <p class="mb-0">Jane specializes in technology and innovation interviews, with over 10 years of experience in tech journalism.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- Related Interviews -->
+<section class="container mb-5">
+  <h2 class="section-title mb-4">Related Interviews</h2>
+
+  <div class="row">
+    {% for interview in interviews[:3] %}
+    <div class="col-md-4">
+      <div class="interview-card card h-100">
+        <img src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" class="interview-card-img card-img-top" alt="{{ interview.title }}" />
+        <div class="card-body">
+          <h5 class="card-title">{{ interview.title }}</h5>
+          <p class="text-muted">{{ interview.interviewee }}</p>
+          <a href="/interview/{{ interview.id }}" class="btn btn-sm btn-outline-primary">Read Interview</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

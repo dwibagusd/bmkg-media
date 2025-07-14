@@ -1,0 +1,97 @@
+<!-- templates/index.html -->
+{% extends "base.html" %} {% block title %}Beranda{% endblock %} {% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-6">
+        <h1 class="display-5 fw-bold mb-4">Selamat Datang di <span class="text-primary">BMKG Media Center</span></h1>
+        <p class="lead mb-4">Portal resmi untuk permohonan wawancara dan informasi terkini dari BMKG.</p>
+        <a href="/request-interview" class="btn btn-primary btn-lg me-2">Ajukan Wawancara</a>
+        <a href="#press-releases" class="btn btn-outline-dark btn-lg">Lihat Press Release</a>
+      </div>
+      <div class="col-lg-6 text-center">
+        <img src="https://www.bmkg.go.id/asset/img/logo/logo-bmkg.png" class="img-fluid" style="max-height: 200px" alt="BMKG Logo" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Weather Section -->
+<section class="container mb-5">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="weather-box">
+        <h3 class="mb-3">Informasi Cuaca Hari Ini</h3>
+        <div class="row">
+          <div class="col-4">
+            <h4 class="display-6">{{ weather.temp }}</h4>
+            <p>{{ weather.condition }}</p>
+          </div>
+          <div class="col-8">
+            <p><strong>Tanggal:</strong> {{ weather.date }}</p>
+            <p><strong>Kelembaban:</strong> {{ weather.humidity }}</p>
+            <p><strong>Angin:</strong> {{ weather.wind }}</p>
+          </div>
+        </div>
+        <div class="mt-3">
+          <h5>Prospek Cuaca:</h5>
+          <p>{{ weather.outlook }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <h3 class="mb-3">Peringatan Dini</h3>
+      <div id="warningCarousel" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-inner rounded">
+          {% for warning in warnings %}
+          <div class="carousel-item {% if loop.first %}active{% endif %}">
+            <div class="warning-slide" style="background-image: url('https://images.unsplash.com/photo-1502224562085-639556652f33?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80')">
+              <div class="warning-overlay">
+                <h5>{{ warning.title }}</h5>
+                <p>{{ warning.description }}</p>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#warningCarousel" data-bs-slide="prev">
+          <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+          <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#warningCarousel" data-bs-slide="next">
+          <span class="carousel-control-next-icon" aria-hidden="true"></span>
+          <span class="visually-hidden">Next</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Press Releases -->
+<section class="container mb-5" id="press-releases">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="section-title">Press Release Terkini</h2>
+    <a href="#press-releases" class="text-decoration-none text-primary">Lihat Semua <i class="bi bi-arrow-right"></i></a>
+  </div>
+
+  <div class="row">
+    {% for release in press_releases %}
+    <div class="col-lg-4 col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <span class="badge bg-primary mb-2">Press Release</span>
+          <h5 class="card-title">{{ release.title }}</h5>
+          <p class="text-muted">{{ release.date }}</p>
+          <p class="card-text">{{ release.summary }}</p>
+          <a href="/press-release/{{ release.id }}" class="btn btn-sm btn-outline-primary">Baca Selengkapnya</a>
+        </div>
+        <div class="card-footer bg-white border-0">
+          <small class="text-muted">BMKG Media Center</small>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
