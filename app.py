@@ -16,9 +16,9 @@ load_dotenv()  # Untuk development lokal, di Vercel tidak diperlukan
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
-app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL')  # Wajib!
-app.config['ADMIN_PASSWORD'] = os.environ.get('ADMIN_PASSWORD')  # Wajib!
-app.config['USER_PASSWORD'] = os.environ.get('USER_PASSWORD')  # Wajib!
+app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL')  # 
+app.config['ADMIN_PASSWORD'] = os.environ.get('ADMIN_PASSWORD')  # 
+app.config['USER_PASSWORD'] = os.environ.get('USER_PASSWORD')  # 
 app.config['UPLOAD_FOLDER'] = 'static/uploads/'
 app.config['ALLOWED_EXTENSIONS'] = {'wav', 'mp3', 'ogg'}
 app.config['WHATSAPP_ADMIN'] = os.environ.get('WHATSAPP_ADMIN')
