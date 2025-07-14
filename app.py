@@ -7,18 +7,12 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
 import psycopg2
-from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 from hashlib import sha256  
 
-# Load environment variables
-load_dotenv()  # Untuk development lokal, di Vercel tidak diperlukan
-
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
-app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL')  # 
-app.config['ADMIN_PASSWORD'] = os.environ.get('ADMIN_PASSWORD')  # 
-app.config['USER_PASSWORD'] = os.environ.get('USER_PASSWORD')  # 
+app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL')  # Wajib!
 app.config['UPLOAD_FOLDER'] = 'static/uploads/'
 app.config['ALLOWED_EXTENSIONS'] = {'wav', 'mp3', 'ogg'}
 app.config['WHATSAPP_ADMIN'] = os.environ.get('WHATSAPP_ADMIN')
@@ -35,16 +29,6 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
-# Konfigurasi koneksi database
-def get_db_config():
-    return {
-        'user': os.getenv('DB_USER', os.environ.get('DB_USER')),
-        'password': os.getenv('DB_PASSWORD', os.environ.get('DB_PASSWORD')),
-        'host': os.getenv('DB_HOST', os.environ.get('DB_HOST')),
-        'port': os.getenv('DB_PORT', os.environ.get('DB_PORT', '5432')),
-        'dbname': os.getenv('DB_NAME', os.environ.get('DB_NAME'))
-    }
-    
 # Konfigurasi database PostgreSQL
 def get_db():
     if 'db' not in g:
@@ -158,18 +142,15 @@ def init_db():
         )
         ''')
         
-        # Gunakan password dari environment variables
-        admin_pass = os.getenv('ADMIN_PASSWORD', os.environ.get('ADMIN_PASSWORD'))
-        user_pass = os.getenv('USER_PASSWORD', os.environ.get('USER_PASSWORD'))
-
-        if not admin_pass or not user_pass:
-            raise RuntimeError("Admin or user password not set in environment")
+        # Insert admin user dengan password yang di-hash dengan benar
+        admin_password = os.environ.get('ADMIN_PASSWORD', 'password123')
+        user_password = os.environ.get('USER_PASSWORD', 'user123')
         
         cursor.execute('''
             INSERT INTO users (username, password, role) 
             VALUES (%s, %s, %s)
             ON CONFLICT (username) DO NOTHING
-        ''', ('admin', generate_password_hash(admin_pass, method='pbkdf2:sha256'), 'admin'))
+        ''', ('admin', generate_password_hash(admin_password), 'admin'))
         
         cursor.execute('''
             INSERT INTO users (username, password, role) 
@@ -444,31 +425,27 @@ def login():
         return redirect(url_for('index'))
     
     if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
         try:
-            username = request.form['username']
-            password = request.form['password']
+            db = get_db()
+            cursor = db.cursor()
+            cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
+            user = cursor.fetchone()
             
-            with get_db().cursor() as cur:
-                cur.execute(
-                    "SELECT username, password, role FROM users WHERE username = %s", 
-                    (username,)
-                )
-                user = cur.fetchone()
-                
-                if user and check_password_hash(user[1], password):
-                    session.update({
-                        'user': user[0],
-                        'role': user[2]
-                    })
+            if user:
+                if check_password_hash(user[2], password):
+                    session['user'] = user[1]
+                    flash('Login berhasil!', 'success')
                     return redirect(url_for('index'))
-                
-            flash('Invalid username or password', 'danger')
-            
-        except KeyError:
-            flash('Please fill all fields', 'danger')
+                else:
+                    flash('Password salah', 'danger')
+            else:
+                flash('Username tidak ditemukan', 'danger')
         except Exception as e:
             app.logger.error(f"Login error: {str(e)}")
-            flash('System error during login', 'danger')
+            flash('Terjadi kesalahan sistem', 'danger')
     
     return render_template('login.html')
 
@@ -476,34 +453,6 @@ def login():
 def logout():
     session.pop('user', None)
     return redirect(url_for('index'))
-
-@app.route('/db-status')
-def db_status():
-    try:
-        config = get_db_config()
-        status = {
-            'config_set': all(config.values()),
-            'can_connect': False,
-            'tables_exist': False
-        }
-        
-        if status['config_set']:
-            with get_db().cursor() as cur:
-                cur.execute("SELECT 1")
-                status['can_connect'] = cur.fetchone()[0] == 1
-                
-                cur.execute("""
-                    SELECT EXISTS(
-                        SELECT FROM information_schema.tables 
-                        WHERE table_name = 'users'
-                    )
-                """)
-                status['tables_exist'] = cur.fetchone()[0]
-        
-        return jsonify(status)
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 # Inisialisasi database saat aplikasi dimulai
 with app.app_context():
