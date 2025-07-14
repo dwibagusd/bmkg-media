@@ -477,6 +477,34 @@ def logout():
     session.pop('user', None)
     return redirect(url_for('index'))
 
+@app.route('/db-status')
+def db_status():
+    try:
+        config = get_db_config()
+        status = {
+            'config_set': all(config.values()),
+            'can_connect': False,
+            'tables_exist': False
+        }
+        
+        if status['config_set']:
+            with get_db().cursor() as cur:
+                cur.execute("SELECT 1")
+                status['can_connect'] = cur.fetchone()[0] == 1
+                
+                cur.execute("""
+                    SELECT EXISTS(
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'users'
+                    )
+                """)
+                status['tables_exist'] = cur.fetchone()[0]
+        
+        return jsonify(status)
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Inisialisasi database saat aplikasi dimulai
 with app.app_context():
     init_db()
