@@ -26,7 +26,17 @@ def allowed_file(filename):
 # Konfigurasi database PostgreSQL
 def get_db():
     if 'db' not in g:
-        g.db = psycopg2.connect(os.environ.get('DATABASE_URL'))
+        # Pastikan menggunakan URL dari environment variable
+        db_url = os.environ.get('DATABASE_URL')
+        
+        if not db_url:
+            raise RuntimeError("DATABASE_URL environment variable not set")
+        
+        # Konversi URL supabase ke format yang bisa dipahami psycopg2
+        if db_url.startswith('postgres://'):
+            db_url = db_url.replace('postgres://', 'postgresql://', 1)
+            
+        g.db = psycopg2.connect(db_url)
     return g.db
 
 @app.teardown_appcontext
