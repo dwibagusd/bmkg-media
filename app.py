@@ -9,9 +9,9 @@ from werkzeug.utils import secure_filename
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
-import sqlite3
+# import sqlite3
 from flask import g
-import pymysql, psycopg2 # untuk PostgreSQL
+import psycopg2 # untuk PostgreSQL
 from flask import g
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -118,11 +118,9 @@ DATABASE = 'bmkg_media.db'
 #         db.commit()
 
 def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row
-    return db
+    if 'db' not in g:
+        g.db = psycopg2.connect(os.environ['DATABASE_URL'])
+    return g.db
 
 @app.teardown_appcontext
 def close_connection(exception):
