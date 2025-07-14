@@ -8,6 +8,7 @@ from reportlab.pdfgen import canvas
 import io
 import psycopg2
 from werkzeug.security import generate_password_hash, check_password_hash
+from hashlib import sha256  
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'supersecretkey')
@@ -18,6 +19,12 @@ app.config['WHATSAPP_DEFAULT_MSG'] = 'Halo BMKG, saya ingin konfirmasi permohona
 
 # Buat folder unggahan
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Di bagian user creation/registration:
+hashed_pw = generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
+
+# Di bagian login:
+check_password_hash(user.password, password)  # Tetap sama
 
 def allowed_file(filename):
     return '.' in filename and \
