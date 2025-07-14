@@ -11,20 +11,19 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from hashlib import sha256  
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'supersecretkey')
+app.secret_key = os.environ.get('SECRET_KEY')
+app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL')  # Wajib!
 app.config['UPLOAD_FOLDER'] = 'static/uploads/'
 app.config['ALLOWED_EXTENSIONS'] = {'wav', 'mp3', 'ogg'}
-app.config['WHATSAPP_ADMIN'] = os.environ.get('WHATSAPP_ADMIN', '6281932689046')
+app.config['WHATSAPP_ADMIN'] = os.environ.get('WHATSAPP_ADMIN')
 app.config['WHATSAPP_DEFAULT_MSG'] = 'Halo BMKG, saya ingin konfirmasi permohonan wawancara dengan token: '
 
 # Buat folder unggahan
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Di bagian user creation/registration:
-hashed_pw = generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
-
-# Di bagian login:
-check_password_hash(user.password, password)  # Tetap sama
+# Perbaikan fungsi hash password
+def generate_password_hash(password):
+    return generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -33,20 +32,65 @@ def allowed_file(filename):
 # Konfigurasi database PostgreSQL
 def get_db():
     if 'db' not in g:
+        # Dapatkan URL dari environment variable Vercel
         db_url = os.environ.get('DATABASE_URL')
         
         if not db_url:
-            raise RuntimeError("DATABASE_URL environment variable not set")
-        
-        # Konversi URL untuk kompatibilitas
-        # db_url = db_url.replace('postgres://', 'postgresql://')
-        
-        # Tambahkan parameter koneksi
-        g.db = psycopg2.connect(
-            db_url,
-            sslmode='require',
-            connect_timeout=10  # Timeout 10 detik
-        )
+            app.logger.error("DATABASE_URL environment variable not found")
+            raise RuntimeError("Database configuration error")
+
+        # Konversi URL format jika diperlukan
+        if db_url.startswith('postgres://'):
+            db_url = db_url.replace('postgres://', 'postgresql://', 1)
+
+        # Tambahkan parameter SSL jika belum ada
+        if 'sslmode=' not in db_url:
+            db_url += '?sslmode=require'
+
+        try:
+            # Backup fungsi DNS asli
+            import socket
+            original_getaddrinfo = socket.getaddrinfo
+
+            # Force IPv4 jika diperlukan
+            def forced_ipv4_getaddrinfo(host, port, *args, **kwargs):
+                try:
+                    # Coba IPv4 dulu
+                    return original_getaddrinfo(host, port, socket.AF_INET, *args, **kwargs)
+                except socket.gaierror:
+                    # Fallback ke IPv6 jika IPv4 gagal
+                    return original_getaddrinfo(host, port, socket.AF_INET6, *args, **kwargs)
+
+            socket.getaddrinfo = forced_ipv4_getaddrinfo
+
+            # Buat koneksi dengan timeout dan konfigurasi khusus
+            g.db = psycopg2.connect(
+                db_url,
+                connect_timeout=10,
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5
+            )
+
+            # Test koneksi langsung
+            with g.db.cursor() as cur:
+                cur.execute("SELECT 1")
+                if cur.fetchone()[0] != 1:
+                    raise RuntimeError("Database connection test failed")
+
+            app.logger.info("Database connection established successfully")
+
+        except psycopg2.OperationalError as e:
+            app.logger.error(f"Operational Error: {str(e)}")
+            # Restore DNS resolver asli
+            socket.getaddrinfo = original_getaddrinfo
+            raise RuntimeError("Could not connect to database. Please try again later.")
+            
+        except Exception as e:
+            app.logger.error(f"Unexpected database error: {str(e)}")
+            raise RuntimeError("Database service unavailable")
+
     return g.db
 
 @app.teardown_appcontext
@@ -98,21 +142,21 @@ def init_db():
         )
         ''')
         
-        # Perbaikan password dengan hashing
-        hashed_admin_pw = generate_password_hash(os.environ.get('ADMIN_PASSWORD', 'password123'))
-        hashed_user_pw = generate_password_hash(os.environ.get('USER_PASSWORD', 'user123'))
+        # Insert admin user dengan password yang di-hash dengan benar
+        admin_password = os.environ.get('ADMIN_PASSWORD', 'password123')
+        user_password = os.environ.get('USER_PASSWORD', 'user123')
         
         cursor.execute('''
             INSERT INTO users (username, password, role) 
             VALUES (%s, %s, %s)
             ON CONFLICT (username) DO NOTHING
-        ''', ('admin', hashed_admin_pw, 'admin'))
+        ''', ('admin', generate_password_hash(admin_password), 'admin'))
         
         cursor.execute('''
             INSERT INTO users (username, password, role) 
             VALUES (%s, %s, %s)
             ON CONFLICT (username) DO NOTHING
-        ''', ('user1', hashed_user_pw, 'user'))
+        ''', ('user1', generate_password_hash(user_password), 'user'))
         
         db.commit()
         print("Database initialized successfully")
@@ -399,10 +443,9 @@ def login():
                     flash('Password salah', 'danger')
             else:
                 flash('Username tidak ditemukan', 'danger')
-                
         except Exception as e:
-            flash(f'Terjadi kesalahan sistem: {str(e)}', 'danger')
-            app.logger.error(f'Login error: {str(e)}')
+            app.logger.error(f"Login error: {str(e)}")
+            flash('Terjadi kesalahan sistem', 'danger')
     
     return render_template('login.html')
 
