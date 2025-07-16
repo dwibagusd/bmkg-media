@@ -7,7 +7,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
 import psycopg2
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash 
 from hashlib import sha256  
 
 app = Flask(__name__)
@@ -20,10 +20,6 @@ app.config['WHATSAPP_DEFAULT_MSG'] = 'Halo BMKG, saya ingin konfirmasi permohona
 
 # Buat folder unggahan
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-# Perbaikan fungsi hash password
-def generate_password_hash(password):
-    return generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -150,13 +146,13 @@ def init_db():
             INSERT INTO users (username, password, role) 
             VALUES (%s, %s, %s)
             ON CONFLICT (username) DO NOTHING
-        ''', ('admin', generate_password_hash(admin_password), 'admin'))
+        ''', ('admin', generate_password_hash(admin_password, method='pbkdf2:sha256', salt_length=16), 'admin'))
         
         cursor.execute('''
             INSERT INTO users (username, password, role) 
             VALUES (%s, %s, %s)
             ON CONFLICT (username) DO NOTHING
-        ''', ('user1', generate_password_hash(user_password), 'user'))
+        ''', ('user1', generate_password_hash(user_password, method='pbkdf2:sha256', salt_length=16), 'user'))
         
         db.commit()
         print("Database initialized successfully")
