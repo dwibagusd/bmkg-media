@@ -430,7 +430,13 @@ def login():
             cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
             user = cursor.fetchone()
             
+            # --- TAMBAHKAN LOGGING DI SINI ---
+            app.logger.info(f"Mencoba login untuk user: {username}")
+            app.logger.info(f"Data user dari DB: {user}")
+            
             if user:
+                # Cek sebelum hashing
+                app.logger.info(f"Memeriksa hash: {user[2]}")
                 if check_password_hash(user[2], password):
                     session['user'] = user[1]
                     flash('Login berhasil!', 'success')
@@ -439,8 +445,11 @@ def login():
                     flash('Password salah', 'danger')
             else:
                 flash('Username tidak ditemukan', 'danger')
+                
         except Exception as e:
-            app.logger.error(f"Login error: {str(e)}")
+            # --- UBAH LOGGING ERROR DI SINI ---
+            # Cetak error yang sebenarnya untuk debugging
+            app.logger.error(f"LOGIN EXCEPTION: Terjadi error -> {e}", exc_info=True)
             flash('Terjadi kesalahan sistem', 'danger')
     
     return render_template('login.html')
