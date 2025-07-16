@@ -7,7 +7,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
 import psycopg2
-from werkzeug.security import generate_password_hash 
+from werkzeug.security import generate_password_hash, check_password_hash
 from hashlib import sha256  
 
 app = Flask(__name__)
