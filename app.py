@@ -7,6 +7,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
 import psycopg2
+import psycopg2.extras
 from werkzeug.security import generate_password_hash, check_password_hash
 from hashlib import sha256  
 
@@ -282,10 +283,11 @@ def historical_data_view():
     if 'user' not in session:
         flash('Please login to view this page', 'danger')
         return redirect(url_for('login'))
-    
     try:
         db = get_db()
-        cursor = db.cursor()
+        # UBAH BARIS INI UNTUK MENGGUNAKAN DICTCURSOR
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
         cursor.execute('''
             SELECT ir.*, ar.filename as has_recording
             FROM interview_requests ir
@@ -295,6 +297,7 @@ def historical_data_view():
         historical_data = cursor.fetchall()
         
         return render_template('historical_data.html', historical_data=historical_data)
+    # ...
     
     except Exception as e:
         flash(f'Database error: {str(e)}', 'danger')
