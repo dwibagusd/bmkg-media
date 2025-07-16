@@ -438,7 +438,14 @@ def login():
                 # Cek sebelum hashing
                 app.logger.info(f"Memeriksa hash: {user[2]}")
                 if check_password_hash(user[2], password):
-                    session['user'] = user[1]
+                    # Berdasarkan struktur tabel Anda:
+                    # user[0] = id
+                    # user[1] = username
+                    # user[2] = password
+                    # user[3] = role
+                    session['user'] = user[1]  # Menyimpan username
+                    session['role'] = user[3]  # MENYIMPAN ROLE PENGGUNA
+                                    
                     flash('Login berhasil!', 'success')
                     return redirect(url_for('index'))
                 else:
