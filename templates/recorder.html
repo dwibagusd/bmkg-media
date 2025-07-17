@@ -1,7 +1,140 @@
 {% extends "base.html" %}
 {% block title %}Recorder Wawancara{% endblock %}
+{% extends "base.html" %} {% block title %}Recorder Wawancara{% endblock %} {% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const recordButton = document.getElementById("recordButton");
+    const stopButton = document.getElementById("stopButton");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const saveButton = document.getElementById("saveButton");
+    const transcriptText = document.getElementById("transcript");
+    const tokenInput = document.getElementById("token");
+    const intervieweeInput = document.getElementById("interviewee");
+    const interviewerInput = document.getElementById("interviewer");
 
-{% block content %}
+    let mediaRecorder;
+    let audioChunks = [];
+    let recognition;
+    let isRecording = false;
+    let audioBlob;
+
+    // Check browser compatibility
+    if (!navigator.mediaDevices || (!window.SpeechRecognition && !window.webkitSpeechRecognition)) {
+      alert("Browser Anda tidak mendukung fitur perekaman dan speech-to-text penuh. Gunakan Chrome atau Edge terbaru.");
+    }
+
+    // Initialize speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "id-ID"; // Bahasa Indonesia
+
+      recognition.onresult = function (event) {
+        let interimTranscript = "";
+        let finalTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + " ";
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        transcriptText.value = finalTranscript + interimTranscript;
+      };
+
+      recognition.onerror = function (event) {
+        console.error("Speech recognition error", event.error);
+      };
+    }
+
+    // Start recording
+    recordButton.addEventListener("click", async function () {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = function (event) {
+          audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = function () {
+          audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+          audioPlayer.src = URL.createObjectURL(audioBlob);
+          audioChunks = [];
+        };
+
+        mediaRecorder.start();
+        if (recognition) recognition.start();
+
+        recordButton.disabled = true;
+        stopButton.disabled = false;
+        isRecording = true;
+
+        console.log("Recording started");
+      } catch (error) {
+        console.error("Error accessing microphone:", error);
+        alert("Gagal mengakses mikrofon. Pastikan Anda memberikan izin.");
+      }
+    });
+
+    // Stop recording
+    stopButton.addEventListener("click", function () {
+      if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        if (recognition) recognition.stop();
+
+        recordButton.disabled = false;
+        stopButton.disabled = true;
+        isRecording = false;
+
+        console.log("Recording stopped");
+      }
+    });
+
+    // Save recording
+    saveButton.addEventListener("click", async function () {
+      if (!audioBlob) {
+        alert("Tidak ada rekaman yang disimpan. Silakan rekam terlebih dahulu.");
+        return;
+      }
+
+      if (!tokenInput.value || !intervieweeInput.value || !interviewerInput.value) {
+        alert("Harap isi semua field yang diperlukan (Token, Nama Pewawancara, Nama Narasumber)");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("audio_file", audioBlob, "recording.wav");
+      formData.append("token", tokenInput.value);
+      formData.append("interviewee", intervieweeInput.value);
+      formData.append("interviewer", interviewerInput.value);
+      formData.append("transcript", transcriptText.value);
+
+      try {
+        const response = await fetch("/recorder", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (response.ok) {
+          alert("Rekaman berhasil disimpan!");
+          window.location.reload();
+        } else {
+          throw new Error("Gagal menyimpan rekaman");
+        }
+      } catch (error) {
+        console.error("Error saving recording:", error);
+        alert("Gagal menyimpan rekaman: " + error.message);
+      }
+    });
+  });
+</script>
+{% endblock %} {% block content %}
 <style>
   body {
     background-color: #f9fafb;
