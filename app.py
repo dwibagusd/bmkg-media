@@ -10,6 +10,15 @@ import psycopg2
 import psycopg2.extras
 from werkzeug.security import generate_password_hash, check_password_hash
 from hashlib import sha256  
+import speech_recognition as sr
+from pydub import AudioSegment
+import tempfile
+from fpdf import FPDF
+import pandas as pd
+from io import BytesIO
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -221,11 +230,74 @@ def press_release_detail(release_id):
 def generate_token():
     return ''.join(random.choices('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', k=8))
 
+
+def send_email_notification(token, recipient_email, request_data):
+    """Mengirim email notifikasi tentang permohonan wawancara"""
+    try:
+        # Konfigurasi email
+        smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_port = int(os.environ.get('SMTP_PORT', 587))
+        smtp_username = os.environ.get('SMTP_USERNAME')
+        smtp_password = os.environ.get('SMTP_PASSWORD')
+        sender_email = os.environ.get('SENDER_EMAIL', 'noreply@bmkg.example.com')
+        
+        if not all([smtp_username, smtp_password, sender_email]):
+            app.logger.warning("Email configuration not complete, skipping email notification")
+            return False
+        
+        # Buat pesan email
+        subject = f"Konfirmasi Permohonan Wawancara BMKG - Token: {token}"
+        
+        # HTML email content
+        html = f"""
+        <html>
+            <body>
+                <h2>Permohonan Wawancara BMKG</h2>
+                <p>Terima kasih telah mengajukan permohonan wawancara dengan BMKG. Berikut detail permohonan Anda:</p>
+                
+                <table border="0" cellpadding="5">
+                    <tr><td><strong>Token</strong></td><td>{token}</td></tr>
+                    <tr><td><strong>Nama Pewawancara</strong></td><td>{request_data['interviewer_name']}</td></tr>
+                    <tr><td><strong>Media</strong></td><td>{request_data['media_name']}</td></tr>
+                    <tr><td><strong>Topik</strong></td><td>{request_data['topic']}</td></tr>
+                    <tr><td><strong>Metode</strong></td><td>{request_data['method']}</td></tr>
+                    <tr><td><strong>Waktu yang Diminta</strong></td><td>{request_data['datetime']}</td></tr>
+                </table>
+                
+                <p>Status permohonan Anda saat ini: <strong>Pending</strong>. Kami akan menghubungi Anda segera setelah permohonan diproses.</p>
+                
+                <p>Anda dapat memeriksa status permohonan dengan menggunakan token di atas.</p>
+                
+                <p>Hormat kami,<br>Tim BMKG</p>
+            </body>
+        </html>
+        """
+        
+        # Setup email
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = recipient_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(html, 'html'))
+        
+        # Kirim email
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(msg)
+        
+        return True
+    
+    except Exception as e:
+        app.logger.error(f"Email sending error: {str(e)}")
+        return False
+
 @app.route('/request-interview', methods=['GET', 'POST'])
 def request_interview():
     if request.method == 'POST':
         token = generate_token()
         method = request.form.get('method')
+        email = request.form.get('email', '')  # Tambahkan field email di form
         
         whatsapp_link = ''
         if method == 'whatsapp':
@@ -266,10 +338,14 @@ def request_interview():
             ))
             db.commit()
             
+            # Kirim email notifikasi jika email tersedia
+            if email:
+                send_email_notification(token, email, request_data)
+            
             if method == 'whatsapp':
                 return redirect(whatsapp_link)
             
-            flash(f'Permohonan wawancara berhasil! Token Anda: {token}', 'success')
+            flash(f'Permohonan wawancara berhasil! Token Anda: {token}. Detail telah dikirim ke email Anda.', 'success')
             return redirect(url_for('request_interview'))
         
         except Exception as e:
@@ -278,32 +354,159 @@ def request_interview():
     
     return render_template('request_interview.html')
 
-@app.route('/historical-data')
+@app.route('/historical-data', methods=['GET', 'POST'])
 def historical_data_view():
     if 'user' not in session:
         flash('Please login to view this page', 'danger')
         return redirect(url_for('login'))
+    
     try:
         db = get_db()
-        # UBAH BARIS INI UNTUK MENGGUNAKAN DICTCURSOR
         cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        cursor.execute('''
+        # Handle search/filter
+        search_query = request.args.get('search', '')
+        status_filter = request.args.get('status', 'all')
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
+        
+        base_query = '''
             SELECT ir.*, ar.filename as has_recording
             FROM interview_requests ir
             LEFT JOIN audio_recordings ar ON ir.token = ar.token
-            ORDER BY ir.request_date DESC
-        ''')
+        '''
+        
+        conditions = []
+        params = []
+        
+        if search_query:
+            conditions.append('''
+                (ir.interviewer_name ILIKE %s OR 
+                ir.media_name ILIKE %s OR 
+                ir.topic ILIKE %s OR 
+                ir.token ILIKE %s)
+            ''')
+            params.extend([f'%{search_query}%'] * 4)
+        
+        if status_filter != 'all':
+            conditions.append('ir.status = %s')
+            params.append(status_filter)
+        
+        if date_from:
+            conditions.append('ir.request_date >= %s')
+            params.append(date_from)
+        
+        if date_to:
+            conditions.append('ir.request_date <= %s')
+            params.append(date_to)
+        
+        if conditions:
+            base_query += ' WHERE ' + ' AND '.join(conditions)
+        
+        base_query += ' ORDER BY ir.request_date DESC'
+        
+        cursor.execute(base_query, params)
         historical_data = cursor.fetchall()
         
-        return render_template('historical_data.html', historical_data=historical_data)
-    # ...
+        return render_template(
+            'historical_data.html',
+            historical_data=historical_data,
+            search_query=search_query,
+            status_filter=status_filter,
+            date_from=date_from,
+            date_to=date_to
+        )
     
     except Exception as e:
         flash(f'Database error: {str(e)}', 'danger')
         app.logger.error(f'Database error: {str(e)}')
         return redirect(url_for('index'))
 
+@app.route('/export-data')
+def export_data():
+    if 'user' not in session or session.get('role') != 'admin':
+        flash('Unauthorized access', 'danger')
+        return redirect(url_for('login'))
+    
+    try:
+        db = get_db()
+        
+        # Ambil data dari database
+        query = '''
+            SELECT 
+                ir.token,
+                ir.interviewer_name,
+                ir.media_name,
+                ir.topic,
+                ir.method,
+                ir.datetime as scheduled_time,
+                ir.status,
+                ir.request_date,
+                ar.interviewee,
+                ar.date as recording_date
+            FROM interview_requests ir
+            LEFT JOIN audio_recordings ar ON ir.token = ar.token
+            ORDER BY ir.request_date DESC
+        '''
+        
+        df = pd.read_sql(query, db)
+        
+        # Buat file Excel di memori
+        output = BytesIO()
+        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+        df.to_excel(writer, sheet_name='Data Wawancara', index=False)
+        
+        # Formatting
+        workbook = writer.book
+        worksheet = writer.sheets['Data Wawancara']
+        
+        # Set column widths
+        worksheet.set_column('A:A', 15)  # Token
+        worksheet.set_column('B:B', 20)  # Interviewer
+        worksheet.set_column('C:C', 20)  # Media
+        worksheet.set_column('D:D', 30)  # Topic
+        worksheet.set_column('E:E', 15)  # Method
+        worksheet.set_column('F:F', 20)  # Scheduled Time
+        worksheet.set_column('G:G', 15)  # Status
+        worksheet.set_column('H:H', 20)  # Request Date
+        worksheet.set_column('I:I', 20)  # Interviewee
+        worksheet.set_column('J:J', 20)  # Recording Date
+        
+        writer.close()
+        output.seek(0)
+        
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name='data_wawancara_bmkg.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    
+    except Exception as e:
+        flash(f'Error exporting data: {str(e)}', 'danger')
+        app.logger.error(f'Export error: {str(e)}')
+        return redirect(url_for('historical_data_view'))
+
+def transcribe_audio(audio_path):
+    """Mengkonversi audio ke teks menggunakan Google Speech Recognition"""
+    try:
+        # Konversi ke format WAV jika perlu
+        if audio_path.endswith('.mp3'):
+            sound = AudioSegment.from_mp3(audio_path)
+            wav_path = audio_path.replace('.mp3', '.wav')
+            sound.export(wav_path, format="wav")
+            audio_path = wav_path
+        
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(audio_path) as source:
+            audio_data = recognizer.record(source)
+            text = recognizer.recognize_google(audio_data, language="id-ID")
+            return text
+    except Exception as e:
+        app.logger.error(f"Transcription error: {str(e)}")
+        return None
+
+# Modifikasi route recorder untuk menangani transkripsi otomatis
 @app.route('/recorder', methods=['GET', 'POST'])
 def recorder():
     if 'user' not in session:
@@ -335,6 +538,9 @@ def recorder():
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
                 
+                # Transkripsi otomatis
+                transcript = transcribe_audio(filepath)
+                
                 cursor.execute('''
                     INSERT INTO audio_recordings 
                     (token, interviewee, interviewer, date, filename, transcript)
@@ -345,7 +551,7 @@ def recorder():
                     request.form.get('interviewer'),
                     datetime.now().strftime('%Y-%m-%d %H:%M'),
                     filename,
-                    request.form.get('transcript', '')
+                    transcript or request.form.get('transcript', '')
                 ))
                 db.commit()
                 
@@ -385,33 +591,60 @@ def generate_pdf(recording_id):
             flash('Recording not found', 'danger')
             return redirect(url_for('recorder'))
         
-        buffer = io.BytesIO()
-        p = canvas.Canvas(buffer, pagesize=letter)
+        # Buat PDF dengan FPDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
         
-        p.setFont("Helvetica-Bold", 16)
-        p.drawString(100, 750, "Laporan Wawancara BMKG")
+        # Header
+        pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
+        pdf.ln(10)
         
-        p.setFont("Helvetica", 12)
-        p.drawString(100, 720, f"Token: {recording[1]}")
-        p.drawString(100, 700, f"Tanggal: {recording[4]}")
-        p.drawString(100, 680, f"Pewawancara: {recording[3]}")
-        p.drawString(100, 660, f"Narasumber: {recording[2]}")
+        # Informasi dasar
+        pdf.set_font("Arial", '', 12)
+        pdf.cell(40, 10, "Token Wawancara:", 0, 0)
+        pdf.cell(0, 10, recording[1], 0, 1)
         
-        p.drawString(100, 620, "Transkrip Wawancara:")
-        text = p.beginText(100, 600)
-        text.setFont("Helvetica", 10)
+        pdf.cell(40, 10, "Tanggal:", 0, 0)
+        pdf.cell(0, 10, recording[4], 0, 1)
         
-        transcript = recording[6] or ''
+        pdf.cell(40, 10, "Pewawancara:", 0, 0)
+        pdf.cell(0, 10, recording[3], 0, 1)
+        
+        pdf.cell(40, 10, "Narasumber:", 0, 0)
+        pdf.cell(0, 10, recording[2], 0, 1)
+        pdf.ln(10)
+        
+        # Transkrip
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(0, 10, "Transkrip Wawancara", 0, 1)
+        pdf.ln(5)
+        
+        pdf.set_font("Arial", '', 11)
+        transcript = recording[6] or '(Tidak ada transkrip)'
+        
+        # Handle multi-line text
         for line in transcript.split('\n'):
-            for part in [line[i:i+80] for i in range(0, len(line), 80)]:
-                text.textLine(part)
+            pdf.multi_cell(0, 7, line)
+            pdf.ln(2)
         
-        p.drawText(text)
-        p.showPage()
-        p.save()
+        # Footer
+        pdf.set_y(-15)
+        pdf.set_font("Arial", 'I', 8)
+        pdf.cell(0, 10, f"Dibuat pada: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 0, 0, 'C')
         
+        # Simpan ke buffer
+        buffer = io.BytesIO()
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        buffer.write(pdf_bytes)
         buffer.seek(0)
-        return send_file(buffer, as_attachment=True, download_name=f"transkrip_{recording[1]}.pdf", mimetype='application/pdf')
+        
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"transkrip_{recording[1]}.pdf",
+            mimetype='application/pdf'
+        )
     
     except Exception as e:
         flash(f'Error generating PDF: {str(e)}', 'danger')
