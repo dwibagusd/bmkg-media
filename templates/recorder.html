@@ -1,259 +1,88 @@
-{% extends "base.html" %} {% block title %}Recorder Wawancara{% endblock %} {% block scripts %}
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const recordButton = document.getElementById("recordButton");
-    const stopButton = document.getElementById("stopButton");
-    const audioPlayer = document.getElementById("audioPlayer");
-    const saveButton = document.getElementById("saveButton");
-    const transcriptText = document.getElementById("transcript");
-    const tokenInput = document.getElementById("token");
-    const intervieweeInput = document.getElementById("interviewee");
-    const interviewerInput = document.getElementById("interviewer");
+{% block content %}
+<div class="container py-4">
+  <h1 class="mb-4">Recorder Wawancara</h1>
 
-    let mediaRecorder;
-    let audioChunks = [];
-    let recognition;
-    let isRecording = false;
-    let audioBlob;
-
-    // Check browser compatibility
-    if (!navigator.mediaDevices || (!window.SpeechRecognition && !window.webkitSpeechRecognition)) {
-      alert("Browser Anda tidak mendukung fitur perekaman dan speech-to-text penuh. Gunakan Chrome atau Edge terbaru.");
-    }
-
-    // Initialize speech recognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "id-ID"; // Bahasa Indonesia
-
-      recognition.onresult = function (event) {
-        let interimTranscript = "";
-        let finalTranscript = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + " ";
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        transcriptText.value = finalTranscript + interimTranscript;
-      };
-
-      recognition.onerror = function (event) {
-        console.error("Speech recognition error", event.error);
-      };
-    }
-
-    // Start recording
-    recordButton.addEventListener("click", async function () {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-
-        mediaRecorder.ondataavailable = function (event) {
-          audioChunks.push(event.data);
-        };
-
-        mediaRecorder.onstop = function () {
-          audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-          audioPlayer.src = URL.createObjectURL(audioBlob);
-          audioChunks = [];
-        };
-
-        mediaRecorder.start();
-        if (recognition) recognition.start();
-
-        recordButton.disabled = true;
-        stopButton.disabled = false;
-        isRecording = true;
-
-        console.log("Recording started");
-      } catch (error) {
-        console.error("Error accessing microphone:", error);
-        alert("Gagal mengakses mikrofon. Pastikan Anda memberikan izin.");
-      }
-    });
-
-    // Stop recording
-    stopButton.addEventListener("click", function () {
-      if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        if (recognition) recognition.stop();
-
-        recordButton.disabled = false;
-        stopButton.disabled = true;
-        isRecording = false;
-
-        console.log("Recording stopped");
-      }
-    });
-
-    // Save recording
-    saveButton.addEventListener("click", async function () {
-      if (!audioBlob) {
-        alert("Tidak ada rekaman yang disimpan. Silakan rekam terlebih dahulu.");
-        return;
-      }
-
-      if (!tokenInput.value || !intervieweeInput.value || !interviewerInput.value) {
-        alert("Harap isi semua field yang diperlukan (Token, Nama Pewawancara, Nama Narasumber)");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("audio_file", audioBlob, "recording.wav");
-      formData.append("token", tokenInput.value);
-      formData.append("interviewee", intervieweeInput.value);
-      formData.append("interviewer", interviewerInput.value);
-      formData.append("transcript", transcriptText.value);
-
-      try {
-        const response = await fetch("/recorder", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (response.ok) {
-          alert("Rekaman berhasil disimpan!");
-          window.location.reload();
-        } else {
-          throw new Error("Gagal menyimpan rekaman");
-        }
-      } catch (error) {
-        console.error("Error saving recording:", error);
-        alert("Gagal menyimpan rekaman: " + error.message);
-      }
-    });
-  });
-</script>
-{% endblock %} {% block content %}
-<div class="admin-container">
-  <div class="container-fluid">
-    <div class="row">
-      <!-- Sidebar -->
-      <div class="col-lg-2 col-md-3 admin-sidebar">
-        <div class="d-flex flex-column align-items-center py-4 mb-4">
-          <div class="bg-white rounded-circle p-1 mb-2">
-            <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" class="rounded-circle" width="80" alt="Admin" />
-          </div>
-          <h5 class="text-white mb-0">Admin BMKG</h5>
-          <small class="text-white-50">Media Center</small>
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white border-0">
+          <h5 class="mb-0">Rekam Wawancara Langsung</h5>
         </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label for="token" class="form-label">Token Wawancara</label>
+            <input type="text" class="form-control" id="token" name="token" required />
+            <small class="text-muted">Token yang diberikan saat permohonan wawancara</small>
+          </div>
 
-        <ul class="nav flex-column">
-          <li class="nav-item">
-            <a class="nav-link" href="/admin/dashboard"> <i class="bi bi-speedometer2 me-2"></i> Dashboard </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link active" href="/recorder"> <i class="bi bi-mic me-2"></i> Recorder </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/historical-data"> <i class="bi bi-archive me-2"></i> Data Historis </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/logout"> <i class="bi bi-box-arrow-right me-2"></i> Logout </a>
-          </li>
-        </ul>
+          <div class="mb-3">
+            <label for="interviewer" class="form-label">Nama Pewawancara</label>
+            <input type="text" class="form-control" id="interviewer" name="interviewer" required />
+          </div>
+
+          <div class="mb-3">
+            <label for="interviewee" class="form-label">Nama Narasumber</label>
+            <input type="text" class="form-control" id="interviewee" name="interviewee" required />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Rekam Audio</label>
+            <div class="d-flex gap-2 mb-2">
+              <button id="recordButton" class="btn btn-danger"><i class="bi bi-mic-fill me-1"></i> Mulai Rekam</button>
+              <button id="stopButton" class="btn btn-secondary" disabled><i class="bi bi-stop-fill me-1"></i> Stop</button>
+            </div>
+            <audio id="audioPlayer" controls class="w-100"></audio>
+            <small class="text-muted">Pastikan mikrofon Anda berfungsi dengan baik</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="transcript" class="form-label">Transkrip Otomatis</label>
+            <textarea class="form-control" id="transcript" name="transcript" rows="8" placeholder="Transkrip akan muncul otomatis saat rekaman berlangsung..."></textarea>
+            <small class="text-muted">Periksa dan edit transkrip jika diperlukan</small>
+          </div>
+
+          <div class="d-grid">
+            <button id="saveButton" class="btn btn-primary"><i class="bi bi-save me-1"></i> Simpan Rekaman</button>
+          </div>
+        </div>
       </div>
+    </div>
 
-      <!-- Main Content -->
-      <div class="col-lg-10 col-md-9">
-        <div class="p-4">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0">Recorder Wawancara</h1>
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white border-0">
+          <h5 class="mb-0">Rekaman Tersimpan</h5>
+        </div>
+        <div class="card-body">
+          {% if not recordings %}
+          <div class="text-center py-5">
+            <i class="bi bi-mic text-muted" style="font-size: 3rem"></i>
+            <p class="mt-3 text-muted">Belum ada rekaman wawancara</p>
           </div>
-
-          <div class="row">
-            <div class="col-lg-6">
-              <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white border-0">
-                  <h5 class="mb-0">Rekam Wawancara Langsung</h5>
+          {% else %}
+          <div class="list-group">
+            {% for recording in recordings %}
+            <div class="list-group-item mb-3 recording-card">
+              <div class="d-flex justify-content-between">
+                <div>
+                  <h6 class="mb-1">{{ recording.interviewee }}</h6>
+                  <small class="text-muted">Token: {{ recording.token }}</small>
                 </div>
-                <div class="card-body">
-                  <div class="mb-3">
-                    <label for="token" class="form-label">Token Wawancara</label>
-                    <input type="text" class="form-control" id="token" name="token" required />
-                    <small class="text-muted">Token yang diberikan saat permohonan wawancara</small>
-                  </div>
-
-                  <div class="mb-3">
-                    <label for="interviewer" class="form-label">Nama Pewawancara</label>
-                    <input type="text" class="form-control" id="interviewer" name="interviewer" required />
-                  </div>
-
-                  <div class="mb-3">
-                    <label for="interviewee" class="form-label">Nama Narasumber</label>
-                    <input type="text" class="form-control" id="interviewee" name="interviewee" required />
-                  </div>
-
-                  <div class="mb-3">
-                    <label class="form-label">Rekam Audio</label>
-                    <div class="d-flex gap-2 mb-2">
-                      <button id="recordButton" class="btn btn-danger"><i class="bi bi-mic-fill me-1"></i> Mulai Rekam</button>
-                      <button id="stopButton" class="btn btn-secondary" disabled><i class="bi bi-stop-fill me-1"></i> Stop</button>
-                    </div>
-                    <audio id="audioPlayer" controls class="w-100"></audio>
-                    <small class="text-muted">Pastikan mikrofon Anda berfungsi dengan baik</small>
-                  </div>
-
-                  <div class="mb-3">
-                    <label for="transcript" class="form-label">Transkrip Otomatis</label>
-                    <textarea class="form-control" id="transcript" name="transcript" rows="8" placeholder="Transkrip akan muncul otomatis saat rekaman berlangsung..."></textarea>
-                    <small class="text-muted">Periksa dan edit transkrip jika diperlukan</small>
-                  </div>
-
-                  <div class="d-grid">
-                    <button id="saveButton" class="btn btn-primary"><i class="bi bi-save me-1"></i> Simpan Rekaman</button>
-                  </div>
+                <div>
+                  <a href="/generate-pdf/{{ recording.id }}" class="btn btn-sm btn-outline-danger"> <i class="bi bi-file-earmark-pdf"></i> PDF </a>
+                  <audio controls class="ms-2" style="height: 30px; vertical-align: middle">
+                    <source src="{{ url_for('static', filename='uploads/' + recording.filename) }}" type="audio/wav" />
+                  </audio>
                 </div>
               </div>
-            </div>
-
-            <div class="col-lg-6">
-              <div class="card shadow-sm">
-                <div class="card-header bg-white border-0">
-                  <h5 class="mb-0">Rekaman Tersimpan</h5>
-                </div>
-                <div class="card-body">
-                  {% if not recordings %}
-                  <div class="text-center py-5">
-                    <i class="bi bi-mic text-muted" style="font-size: 3rem"></i>
-                    <p class="mt-3 text-muted">Belum ada rekaman wawancara</p>
-                  </div>
-                  {% else %}
-                  <div class="list-group">
-                    {% for recording in recordings %}
-                    <div class="list-group-item mb-3 recording-card">
-                      <div class="d-flex justify-content-between">
-                        <div>
-                          <h6 class="mb-1">{{ recording.interviewee }}</h6>
-                          <small class="text-muted">Token: {{ recording.token }}</small>
-                        </div>
-                        <div>
-                          <a href="/generate-pdf/{{ recording.id }}" class="btn btn-sm btn-outline-danger"> <i class="bi bi-file-earmark-pdf"></i> PDF </a>
-                          <audio controls class="ms-2" style="height: 30px; vertical-align: middle">
-                            <source src="{{ url_for('static', filename='uploads/' + recording.filename) }}" type="audio/wav" />
-                          </audio>
-                        </div>
-                      </div>
-                      <div class="mt-2">
-                        <small class="text-muted">Pewawancara: {{ recording.interviewer }}</small><br />
-                        <small class="text-muted">Tanggal: {{ recording.date }}</small>
-                      </div>
-                    </div>
-                    {% endfor %}
-                  </div>
-                  {% endif %}
-                </div>
+              <div class="mt-2">
+                <small class="text-muted">Pewawancara: {{ recording.interviewer }}</small><br />
+                <small class="text-muted">Tanggal: {{ recording.date }}</small>
               </div>
             </div>
+            {% endfor %}
           </div>
+          {% endif %}
         </div>
       </div>
     </div>
