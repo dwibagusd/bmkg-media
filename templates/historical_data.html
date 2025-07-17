@@ -1,62 +1,81 @@
 <!-- templates/historical_data.html -->
-{% extends "base.html" %} {% block title %}Data Historis Wawancara{% endblock %} {% block content %}
+{% extends "base.html" %} 
+
+{% block title %}Data Historis Wawancara{% endblock %} 
+
+{% block content %}
 <section class="container my-5">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="display-6 fw-bold mb-0">Data Historis Wawancara</h1>
-    <a href="/request-interview" class="btn btn-primary"> <i class="bi bi-plus me-1"></i> Ajukan Baru </a>
+    <a href="{{ url_for('request_interview') }}" class="btn btn-primary">
+      <i class="bi bi-plus me-1"></i> Ajukan Baru
+    </a>
   </div>
 
   <div class="card shadow-sm">
     <div class="card-body">
       <div class="table-responsive">
-        <table class="table table-hover">
-          <thead>
+        <table class="table table-hover table-striped">
+          <thead class="table-light">
             <tr>
-              <th>ID</th>
-              <th>Tanggal Permohonan</th>
-              <th>Pewawancara</th>
-              <th>Media</th>
-              <th>Topik</th>
-              <th>Metode</th>
-              <th>Status</th>
-              <th>Token</th>
+              <th scope="col">ID</th>
+              <th scope="col">Tanggal Permohonan</th>
+              <th scope="col">Pewawancara</th>
+              <th scope="col">Media</th>
+              <th scope="col">Topik</th>
+              <th scope="col">Metode</th>
+              <th scope="col">Status</th>
+              <th scope="col">Token</th>
+              <th scope="col">Rekaman</th>
             </tr>
           </thead>
           <tbody>
             {% for request in historical_data %}
             <tr>
-              <td>{{ request.id }}</td>
-              <td>{{ request.request_date }}</td>
-              <td>{{ request.interviewer_name }}</td>
-              <td>{{ request.media_name }}</td>
-              <td>{{ request.topic[:30] }}{% if request.topic|length > 30 %}...{% endif %}</td>
+              <td>{{ request.id|e }}</td>
+              <td>{{ request.request_date|e }}</td>
+              <td>{{ request.interviewer_name|e }}</td>
+              <td>{{ request.media_name|e }}</td>
+              <td>
+                <span title="{{ request.topic|e }}">
+                  {{ request.topic[:30]|e }}{% if request.topic|length > 30 %}...{% endif %}
+                </span>
+              </td>
               <td>
                 {% if request.method == 'telepon' %}
-                <span class="badge bg-primary">Telepon</span>
+                <span class="badge bg-primary rounded-pill">Telepon</span>
                 {% elif request.method == 'whatsapp' %}
-                <span class="badge bg-success">WhatsApp</span>
+                <span class="badge bg-success rounded-pill">WhatsApp</span>
                 {% elif request.method == 'langsung' %}
-                <span class="badge bg-warning text-dark">Tatap Muka</span>
+                <span class="badge bg-warning text-dark rounded-pill">Tatap Muka</span>
                 {% else %}
-                <span class="badge bg-danger">Virtual</span>
+                <span class="badge bg-info rounded-pill">Virtual</span>
                 {% endif %}
               </td>
               <td>
                 {% if request.status == 'Pending' %}
-                <span class="badge bg-secondary">Pending</span>
+                <span class="badge bg-secondary rounded-pill">Pending</span>
                 {% elif request.status == 'Approved' %}
-                <span class="badge bg-success">Disetujui</span>
+                <span class="badge bg-success rounded-pill">Disetujui</span>
                 {% else %}
-                <span class="badge bg-danger">Ditolak</span>
+                <span class="badge bg-danger rounded-pill">Ditolak</span>
                 {% endif %}
               </td>
-              <td><code>{{ request.token }}</code></td>
               <td>
+                <code class="user-select-all">{{ request.token|e }}</code>
+              </td>
+              <td class="text-center">
                 {% if request.has_recording %}
-                <i class="bi bi-check-circle text-success"></i>
+                <i class="bi bi-check-circle-fill text-success" title="Tersedia"></i>
                 {% else %}
-                <i class="bi bi-x-circle text-danger"></i>
+                <i class="bi bi-x-circle-fill text-secondary" title="Tidak tersedia"></i>
                 {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="9" class="text-center text-muted py-4">
+                Tidak ada data wawancara yang tersedia
               </td>
             </tr>
             {% endfor %}
