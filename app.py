@@ -297,13 +297,12 @@ def request_interview():
     if request.method == 'POST':
         token = generate_token()
         method = request.form.get('method')
-        email = request.form.get('email', '')  # Tambahkan field email di form
-        
-        whatsapp_link = ''
-        if method == 'whatsapp':
-            message = f"{app.config['WHATSAPP_DEFAULT_MSG']}{token}"
-            whatsapp_link = f"https://wa.me/{app.config['WHATSAPP_ADMIN']}?text={message}"
-        
+        email = request.form.get('email', '')
+
+        # Selalu arahkan ke WhatsApp setelah submit
+        message = f"{app.config['WHATSAPP_DEFAULT_MSG']}{token}"
+        whatsapp_link = f"https://wa.me/{app.config['WHATSAPP_ADMIN']}?text={message}"
+
         request_data = {
             'token': token,
             'interviewer_name': request.form.get('interviewer_name'),
@@ -316,7 +315,7 @@ def request_interview():
             'request_date': datetime.now().strftime('%Y-%m-%d %H:%M'),
             'status': 'Pending'
         }
-        
+
         try:
             db = get_db()
             cursor = db.cursor()
@@ -337,21 +336,17 @@ def request_interview():
                 request_data['status']
             ))
             db.commit()
-            
-            # Kirim email notifikasi jika email tersedia
+
             if email:
                 send_email_notification(token, email, request_data)
-            
-            if method == 'whatsapp':
-                return redirect(whatsapp_link)
-            
-            flash(f'Permohonan wawancara berhasil! Token Anda: {token}. Detail telah dikirim ke email Anda.', 'success')
-            return redirect(url_for('request_interview'))
-        
+
+            # Langsung redirect ke WhatsApp apapun metodenya
+            return redirect(whatsapp_link)
+
         except Exception as e:
             flash(f'Database error: {str(e)}', 'danger')
             app.logger.error(f'Database error: {str(e)}')
-    
+
     return render_template('request_interview.html')
 
 @app.route('/historical-data', methods=['GET', 'POST'])
@@ -709,3 +704,4 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
