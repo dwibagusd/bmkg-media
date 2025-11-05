@@ -24,9 +24,7 @@
               <th scope="col">Media</th>
               <th scope="col">Topik</th>
               <th scope="col">Metode</th>
-              <th scope="col">Status</th>
               <th scope="col">Token</th>
-              <th scope="col">Rekaman</th>
             </tr>
           </thead>
           <tbody>
@@ -52,7 +50,7 @@
                 <span class="badge bg-info rounded-pill">Virtual</span>
                 {% endif %}
               </td>
-              <td>
+              <!-- <td>
                 {% if request.status == 'Pending' %}
                 <span class="badge bg-secondary rounded-pill">Pending</span>
                 {% elif request.status == 'Approved' %}
@@ -60,17 +58,17 @@
                 {% else %}
                 <span class="badge bg-danger rounded-pill">Ditolak</span>
                 {% endif %}
-              </td>
+              </td> -->
               <td>
                 <code class="user-select-all">{{ request.token|e }}</code>
               </td>
-              <td class="text-center">
+              <!-- <td class="text-center">
                 {% if request.has_recording %}
                 <i class="bi bi-check-circle-fill text-success" title="Tersedia"></i>
                 {% else %}
                 <i class="bi bi-x-circle-fill text-secondary" title="Tidak tersedia"></i>
                 {% endif %}
-              </td>
+              </td> -->
             </tr>
             {% else %}
             <tr>
@@ -86,3 +84,4 @@
   </div>
 </section>
 {% endblock %}
+
