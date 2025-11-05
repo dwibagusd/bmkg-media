@@ -299,18 +299,46 @@ def request_interview():
         method = request.form.get('method')
         email = request.form.get('email', '')
 
-        # Selalu arahkan ke WhatsApp setelah submit
-        message = f"{app.config['WHATSAPP_DEFAULT_MSG']}{token}"
-        whatsapp_link = f"https://wa.me/{app.config['WHATSAPP_ADMIN']}?text={message}"
+        # Ambil semua data form
+        interviewer_name = request.form.get('interviewer_name')
+        media_name = request.form.get('media_name')
+        topic = request.form.get('topic')
+        datetime_req = request.form.get('datetime')
+        meeting_link = request.form.get('meeting_link', '')
 
+        # Buat template pesan WhatsApp
+        message = f"""Permohonan Wawancara BMKG
+        Halo Admin BMKG 👋,
+        Berikut detail permohonan wawancara yang baru saja diajukan:
+
+        🧾 Token: *{token}*
+        👤 Nama Pewawancara: *{interviewer_name}*
+        🏢 Media: *{media_name}*
+        🗣️ Topik Wawancara: *{topic}*
+        📅 Tanggal & Waktu: *{datetime_req}*
+        💬 Metode: *{method.capitalize()}*
+        🔗 Meeting Link (jika ada): {meeting_link if meeting_link else '-'}
+        
+        Mohon tindak lanjut konfirmasi jadwal.
+        Terima kasih 🙏
+        """
+
+        # Encode pesan agar formatnya aman di URL WhatsApp
+        from urllib.parse import quote
+        encoded_message = quote(message)
+
+        # Buat link WhatsApp final
+        whatsapp_link = f"https://wa.me/{app.config['WHATSAPP_ADMIN']}?text={encoded_message}"
+
+        # Simpan ke database
         request_data = {
             'token': token,
-            'interviewer_name': request.form.get('interviewer_name'),
-            'media_name': request.form.get('media_name'),
-            'topic': request.form.get('topic'),
+            'interviewer_name': interviewer_name,
+            'media_name': media_name,
+            'topic': topic,
             'method': method,
-            'datetime': request.form.get('datetime'),
-            'meeting_link': request.form.get('meeting_link', ''),
+            'datetime': datetime_req,
+            'meeting_link': meeting_link,
             'whatsapp_link': whatsapp_link,
             'request_date': datetime.now().strftime('%Y-%m-%d %H:%M'),
             'status': 'Pending'
@@ -337,10 +365,11 @@ def request_interview():
             ))
             db.commit()
 
+            # Kirim email jika ada
             if email:
                 send_email_notification(token, email, request_data)
 
-            # Langsung redirect ke WhatsApp apapun metodenya
+            # Arahkan ke WhatsApp langsung (untuk semua metode)
             return redirect(whatsapp_link)
 
         except Exception as e:
@@ -348,6 +377,7 @@ def request_interview():
             app.logger.error(f'Database error: {str(e)}')
 
     return render_template('request_interview.html')
+
 
 @app.route('/historical-data', methods=['GET', 'POST'])
 def historical_data_view():
@@ -704,4 +734,5 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
