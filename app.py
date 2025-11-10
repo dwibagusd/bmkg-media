@@ -748,26 +748,39 @@ def upload_audio():
 @app.route('/get_topik/<token>')
 def get_topik(token):
     """
-    Mengambil 'topic' dari Supabase berdasarkan 'token' yang dipilih 
-    di dropdown. Mengembalikan JSON.
+    MODIFIKASI: Mengambil detail lengkap untuk permohonan wawancara
+    berdasarkan token. Mengembalikan JSON.
     """
     if 'user' not in session:
-        return {'topik': ''}, 403
+        return {'error': 'Unauthorized'}, 403
 
-    topik = ''
     try:
         db = get_db()
         cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cursor.execute("SELECT topic FROM interview_requests WHERE token = %s", (token,))
+        
+        # Ambil semua data yang kita perlukan
+        cursor.execute("""
+            SELECT topic, interviewer_name, media_name, datetime 
+            FROM interview_requests 
+            WHERE token = %s
+        """, (token,))
+        
         data = cursor.fetchone()
+        
         if data:
-            topik = data['topic']
-        return {'topik': topik}
+            # Kembalikan semua data sebagai JSON
+            return {
+                'topic': data['topic'],
+                'interviewer_name': data['interviewer_name'],
+                'media_name': data['media_name'],
+                'datetime': data['datetime']
+            }
+        else:
+            return {'error': 'Token not found'}, 404
+            
     except Exception as e:
-        app.logger.error(f"Gagal get topik: {str(e)}")
-        return {'topik': ''}, 500
-
-# ---
+        app.logger.error(f"Gagal get data token: {str(e)}")
+        return {'error': 'Server error'}, 500
 
 @app.route('/save_transcript', methods=['POST'])
 def save_transcript():
@@ -891,6 +904,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
