@@ -616,27 +616,24 @@ def generate_report_now():
         header_path = os.path.join(base_dir, 'static', 'header.png')
 
         if os.path.exists(header_path):
-            # Sisipkan gambar header di bagian atas
-            # pdf.image(path, x, y, width)
-            # x=10 (margin kiri 10mm), y=10 (margin atas 10mm)
-            # w=190 (lebar 190mm, agar pas di halaman A4 [210mm - 20mm margin])
+            # 1. Sisipkan gambar header di bagian atas
+            # w=190 agar pas di halaman A4 (lebar 210mm) dengan margin 10mm
             pdf.image(header_path, x=10, y=10, w=190)
             
-            # Beri jarak 40mm dari atas sebelum mulai menulis teks
-            # (Sesuaikan angka 40 ini jika header Anda lebih tinggi/pendek)
+            # 2. PINDAHKAN KURSOR ke bawah gambar header
+            # (Angka 50mm ini bisa Anda ubah jika kurang pas)
             pdf.set_y(50) 
         else:
             # Fallback jika 'header.png' tidak ditemukan
             app.logger.warn(f"Header image not found at {header_path}, skipping.")
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(0, 10, "Laporan Wawancara BMKG (Header Missing)", 0, 1, 'C')
-            pdf.ln(10)
-        
+            pdf.set_y(10) # Mulai dari atas
+
+        # 3. BARU BUAT JUDUL (setelah set_y)
         pdf.set_font("Arial", 'B', 16)
-        pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
-        pdf.ln(10)
-        
-        # Info Wawancara
+        pdf.cell(0, 10, "NASKAH WAWANCARA", 0, 1, 'C')
+        pdf.ln(10) # Beri jarak setelah judul
+
+        # 4. Info Wawancara (sekarang berada di bawah judul)
         pdf.set_font("Arial", '', 12)
         pdf.cell(40, 10, "Token:", 0, 0)
         pdf.cell(0, 10, token, 0, 1)
@@ -652,24 +649,22 @@ def generate_report_now():
         pdf.cell(0, 10, narasumber, 0, 1)
         pdf.ln(10)
         
-        # Transkrip
+        # 5. Transkrip
         pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 10, "Transkrip Wawancara", 0, 1)
+        pdf.cell(0, 10, "Isi Naskah :", 0, 1)
         pdf.ln(5)
         
         pdf.set_font("Arial", '', 11)
-        # Menangani teks panjang dan multibaris
         for line in teks.split('\n'):
-            pdf.multi_cell(0, 7, line.encode('latin-1', 'replace').decode('latin-1')) # Penanganan karakter
-            pdf.ln(2) # Beri sedikit spasi antar paragraf
+            pdf.multi_cell(0, 7, line.encode('latin-1', 'replace').decode('latin-1')) 
+            pdf.ln(2) 
 
-        # 4. Siapkan file untuk dikirim
+        # 6. Siapkan file untuk dikirim (Tidak berubah)
         pdf_buffer = io.BytesIO()
         pdf_bytes = pdf.output(dest='S')
         pdf_buffer.write(pdf_bytes)
         pdf_buffer.seek(0)
         
-        # 5. Kembalikan file PDF sebagai unduhan
         return send_file(
             pdf_buffer,
             as_attachment=True,
@@ -1052,6 +1047,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
