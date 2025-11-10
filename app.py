@@ -533,6 +533,137 @@ def transcribe_audio(audio_path):
         app.logger.error(f"Transcription error: {str(e)}")
         return None
 
+@app.route('/generate_report_now', methods=['POST'])
+def generate_report_now():
+    """
+    Route baru yang menggabungkan SEMUA:
+    1. Menerima data (audio, transkrip, metadata) dari frontend.
+    2. Menyimpan audio ke /tmp/ (opsional).
+    3. Menyimpan/Memperbarui data transkrip di Supabase.
+    4. Membuat PDF menggunakan FPDF (Vercel-safe).
+    5. Mengembalikan file PDF sebagai unduhan.
+    """
+    if 'user' not in session or session.get('role') != 'admin':
+        return {'message': 'Unauthorized'}, 403
+
+    db = get_db()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
+    try:
+        data = request.form
+        
+        # Ambil data dari form
+        token = data['token']
+        narasumber = data['interviewee']
+        pewawancara = data['interviewer']
+        teks = data['transcript']
+        
+        # Ambil data auto-fill (untuk PDF)
+        media_name = data.get('media_name', '-')
+        topic = data.get('topic', '-')
+        # Ganti 'datetime' ke 'datetime_req' agar tidak bentrok dengan modul datetime
+        datetime_req = data.get('datetime', '-')
+        
+        # 1. Simpan file audio (jika ada)
+        filename = f"rekaman_{token}.webm" # Nama file default
+        if 'audio_file' in request.files:
+            file = request.files['audio_file']
+            # Buat nama file yang aman dan unik
+            filename = secure_filename(f"audio_{token}_{datetime.now().strftime('%Y%m%d%H%M%S')}.webm")
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            app.logger.info(f"Audio disimpan ke: {filepath}")
+            # Di Vercel, ini akan disimpan di /tmp/uploads/
+        
+        # 2. Simpan/Update data di Database (Supabase)
+        tgl_rekaman = datetime.now().strftime('%Y-%m-%d %H:%M')
+        
+        # Menggunakan UPSERT (INSERT ... ON CONFLICT)
+        # Ini akan memperbarui rekaman jika token sudah ada,
+        # atau membuat yang baru jika belum ada.
+        cursor.execute("""
+            INSERT INTO audio_recordings 
+            (token, interviewee, interviewer, date, filename, transcript, request_id)
+            SELECT %s, %s, %s, %s, %s, %s, ir.id
+            FROM interview_requests ir WHERE ir.token = %s
+            ON CONFLICT (request_id) DO UPDATE SET
+                interviewee = EXCLUDED.interviewee,
+                interviewer = EXCLUDED.interviewer,
+                date = EXCLUDED.date,
+                filename = EXCLUDED.filename,
+                transcript = EXCLUDED.transcript
+            RETURNING id
+        """, (token, narasumber, pewawancara, tgl_rekaman, filename, teks, token))
+        
+        # Ambil ID dari data yang baru saja di-insert/update
+        # (Gunakan fetchone() karena RETURNING mengembalikan baris)
+        result = cursor.fetchone()
+        if not result:
+            # Jika token tidak ditemukan di interview_requests
+            db.rollback()
+            return {'message': 'Token tidak valid atau tidak ditemukan di interview_requests.'}, 400
+        
+        recording_id = result['id']
+        db.commit()
+        app.logger.info(f"Data transkrip disimpan/diperbarui untuk ID: {recording_id}")
+
+        # 3. Buat PDF menggunakan FPDF (Vercel-Safe)
+        #    Ini adalah logika dari template .docx Anda, 
+        #    diterjemahkan ke FPDF.
+        
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        
+        pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
+        pdf.ln(10)
+        
+        # Info Wawancara
+        pdf.set_font("Arial", '', 12)
+        pdf.cell(40, 10, "Token:", 0, 0)
+        pdf.cell(0, 10, token, 0, 1)
+        pdf.cell(40, 10, "Topik:", 0, 0)
+        pdf.cell(0, 10, topic, 0, 1)
+        pdf.cell(40, 10, "Waktu Jadwal:", 0, 0)
+        pdf.cell(0, 10, datetime_req, 0, 1)
+        pdf.cell(40, 10, "Instansi Media:", 0, 0)
+        pdf.cell(0, 10, media_name, 0, 1)
+        pdf.cell(40, 10, "Pewawancara:", 0, 0)
+        pdf.cell(0, 10, pewawancara, 0, 1)
+        pdf.cell(40, 10, "Narasumber:", 0, 0)
+        pdf.cell(0, 10, narasumber, 0, 1)
+        pdf.ln(10)
+        
+        # Transkrip
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(0, 10, "Transkrip Wawancara", 0, 1)
+        pdf.ln(5)
+        
+        pdf.set_font("Arial", '', 11)
+        # Menangani teks panjang dan multibaris
+        for line in teks.split('\n'):
+            pdf.multi_cell(0, 7, line.encode('latin-1', 'replace').decode('latin-1')) # Penanganan karakter
+            pdf.ln(2) # Beri sedikit spasi antar paragraf
+
+        # 4. Siapkan file untuk dikirim
+        pdf_buffer = io.BytesIO()
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        pdf_buffer.write(pdf_bytes)
+        pdf_buffer.seek(0)
+        
+        # 5. Kembalikan file PDF sebagai unduhan
+        return send_file(
+            pdf_buffer,
+            as_attachment=True,
+            download_name=f"Laporan_{token}.pdf",
+            mimetype='application/pdf'
+        )
+
+    except Exception as e:
+        db.rollback()
+        app.logger.error(f'Gagal generate report now: {str(e)}', exc_info=True)
+        return {'message': f'Terjadi error di server: {str(e)}'}, 500
+
 # Modifikasi route recorder untuk menangani KEDUA alur kerja
 @app.route('/recorder', methods=['GET', 'POST'])
 def recorder():
@@ -904,6 +1035,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
