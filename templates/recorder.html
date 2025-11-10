@@ -169,11 +169,16 @@
   </form>
 
   <div class="recordings-list">
-    <h4 class="mt-5 mb-3">Rekaman Tersimpan</h4>
-    {% if not recordings %}
-    <p class="text-muted">Belum ada rekaman wawancara.</p>
-    {% else %}
+  <h4 class="mt-5 mb-3">Rekaman Tersimpan</h4>
+  
+  {% if not recordings %}
+  
+  <p class="text-muted">Belum ada rekaman wawancara.</p>
+  
+  {% else %}
+    
     {% for recording in recordings %}
+    
     <div class="recording-card">
       <h6>{{ recording.interviewee }}</h6>
       <p class="text-muted mb-1">Token: {{ recording.token }}</p>
@@ -189,8 +194,9 @@
         </a>
       </div>
     </div>
-    {% endfor %}
+    
+    {% endfor %} 
     {% endif %}
   </div>
-</div>
 {% endblock %}
+
