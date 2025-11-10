@@ -400,7 +400,7 @@ def historical_data_view():
         base_query = '''
             SELECT ir.*, ar.filename as has_recording
             FROM interview_requests ir
-            LEFT JOIN audio_recordings ar ON ir.token = ar.token
+            LEFT JOIN audio_recordings ar ON ir.id = ar.request_id
         '''
         
         conditions = []
@@ -904,6 +904,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
