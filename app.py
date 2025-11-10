@@ -535,7 +535,7 @@ def transcribe_audio(audio_path):
         app.logger.error(f"Transcription error: {str(e)}")
         return None
 
-# Modifikasi route recorder untuk menangani transkripsi otomatis
+# Modifikasi route recorder untuk menangani KEDUA alur kerja
 @app.route('/recorder', methods=['GET', 'POST'])
 def recorder():
     if 'user' not in session:
@@ -544,32 +544,37 @@ def recorder():
     
     try:
         db = get_db()
-        cursor = db.cursor()
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor) # Gunakan DictCursor
         cursor.execute('SELECT role FROM users WHERE username = %s', (session['user'],))
         user = cursor.fetchone()
         
-        if not user or user[0] != 'admin':
+        if not user or user['role'] != 'admin':
             flash('Unauthorized access', 'danger')
             return redirect(url_for('index'))
+    except Exception as e:
+        flash(f'Database error: {str(e)}', 'danger')
+        app.logger.error(f'Database error: {str(e)}')
+        return redirect(url_for('index'))
+
+    # --- LOGIKA POST (dari alur kerja App 2 Anda, biarkan saja) ---
+    if request.method == 'POST':
+        if 'audio_file' not in request.files:
+            flash('No audio file uploaded', 'danger')
+            return redirect(request.url)
         
-        if request.method == 'POST':
-            if 'audio_file' not in request.files:
-                flash('No audio file uploaded', 'danger')
-                return redirect(request.url)
+        file = request.files['audio_file']
+        if file.filename == '':
+            flash('No selected file', 'danger')
+            return redirect(request.url)
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
             
-            file = request.files['audio_file']
-            if file.filename == '':
-                flash('No selected file', 'danger')
-                return redirect(request.url)
+            transcript = transcribe_audio(filepath) # Fungsi STT Anda
             
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-                
-                # Transkripsi otomatis
-                transcript = transcribe_audio(filepath)
-                
+            try:
                 cursor.execute('''
                     INSERT INTO audio_recordings 
                     (token, interviewee, interviewer, date, filename, transcript)
@@ -583,19 +588,37 @@ def recorder():
                     transcript or request.form.get('transcript', '')
                 ))
                 db.commit()
-                
                 flash('Recording saved successfully!', 'success')
-                return redirect(url_for('recorder'))
-        
+            except Exception as e:
+                db.rollback()
+                flash(f'Gagal menyimpan ke DB: {str(e)}', 'danger')
+
+            return redirect(url_for('recorder'))
+    
+    # --- LOGIKA GET (MODIFIKASI DI SINI) ---
+    # Template baru (App 1) butuh 'tokens'
+    # Template lama (App 2) butuh 'recordings'
+    # Kita kirim keduanya
+    
+    tokens = []
+    recordings = []
+    
+    try:
+        # 1. Ambil tokens untuk dropdown (INI YANG BARU)
+        cursor.execute('SELECT token FROM interview_requests ORDER BY request_date DESC')
+        tokens_data = cursor.fetchall()
+        tokens = [{'token': row['token']} for row in tokens_data] # Sesuaikan format
+
+        # 2. Ambil recordings (ini dari kode asli Anda)
         cursor.execute('SELECT * FROM audio_recordings ORDER BY date DESC')
         recordings = cursor.fetchall()
-        
-        return render_template('recorder.html', recordings=recordings)
-    
+
     except Exception as e:
-        flash(f'Database error: {str(e)}', 'danger')
+        flash(f'Database error saat mengambil data: {str(e)}', 'danger')
         app.logger.error(f'Database error: {str(e)}')
-        return redirect(url_for('index'))
+    
+    # Render template dengan KEDUA variabel
+    return render_template('recorder.html', tokens=tokens, recordings=recordings)
 
 @app.route('/generate-pdf/<int:recording_id>')
 def generate_pdf(recording_id):
@@ -715,6 +738,174 @@ def generate_pdf(recording_id):
         app.logger.error(f'PDF generation error: {str(e)}')
         return redirect(url_for('recorder'))
 
+@app.route('/upload_audio', methods=['POST'])
+def upload_audio():
+    """
+    Menerima file audio 'rekaman.webm' dari MediaRecorder di frontend.
+    Menyimpannya ke folder /tmp/uploads/ (sesuai app.config).
+    """
+    if 'user' not in session or session.get('role') != 'admin':
+        return {'status': 'error', 'message': 'Unauthorized'}, 403
+
+    if 'audio' not in request.files:
+        return {'status': 'error', 'message': 'No audio file'}, 400
+    
+    audio = request.files['audio']
+    ext = 'webm' # Sesuai JS kita
+
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"rekaman_{timestamp}.{ext}"
+    
+    # Gunakan app.config['UPLOAD_FOLDER'] (yaitu /tmp/uploads/)
+    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    
+    try:
+        audio.save(path)
+        # Di aplikasi produksi, Anda akan upload 'path' ini ke Supabase Storage
+        app.logger.info(f"Audio disimpan sementara di: {path}")
+        return {'status': 'ok', 'filename': filename}
+    except Exception as e:
+        app.logger.error(f"Gagal menyimpan audio: {str(e)}")
+        return {'status': 'error', 'message': 'Server error'}, 500
+
+# ---
+
+@app.route('/get_topik/<token>')
+def get_topik(token):
+    """
+    Mengambil 'topic' dari Supabase berdasarkan 'token' yang dipilih 
+    di dropdown. Mengembalikan JSON.
+    """
+    if 'user' not in session:
+        return {'topik': ''}, 403
+
+    topik = ''
+    try:
+        db = get_db()
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT topic FROM interview_requests WHERE token = %s", (token,))
+        data = cursor.fetchone()
+        if data:
+            topik = data['topic']
+        return {'topik': topik}
+    except Exception as e:
+        app.logger.error(f"Gagal get topik: {str(e)}")
+        return {'topik': ''}, 500
+
+# ---
+
+@app.route('/save_pdf', methods=['POST'])
+def save_pdf():
+    """
+    Menerima data form (token, narasumber, transkrip) dari 'App 1'.
+    Mengambil data lain dari Supabase, membuat DOCX, mengonversi ke PDF,
+    dan menyimpan hasilnya ke tabel 'audio_recordings'.
+    """
+    if 'user' not in session or session.get('role') != 'admin':
+        return {'status': 'error', 'message': 'Unauthorized'}, 403
+
+    db = get_db()
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
+    try:
+        data = request.form
+        token = data['token']
+        narasumber = data['narasumber']
+        teks = data['transkripsi']
+        topik = data['topik'] 
+
+        # 1. Ambil data pelengkap dari Supabase
+        cursor.execute("SELECT * FROM interview_requests WHERE token = %s", (token,))
+        req_data = cursor.fetchone()
+        
+        if not req_data:
+            return {'status': 'error', 'message': 'Token tidak ditemukan'}, 404
+        
+        pewawancara = req_data['interviewer_name']
+        waktu = req_data['datetime']
+        instansi = req_data['media_name']
+        jenis = req_data['method']
+        
+        # 2. Implementasi Template DOCX (Sama seperti /generate-pdf Anda)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        doc_path = os.path.join(base_dir, 'static', 'template.docx')
+        
+        if not os.path.exists(doc_path):
+            app.logger.error(f"Template file not found at {doc_path}")
+            return {'status': 'error', 'message': 'Template file not found'}, 500
+
+        doc = Document(doc_path)
+        
+        replacements = {
+            '{{waktu}}': waktu or '-',
+            '{{jenis}}': jenis or '-',
+            '{{pewawancara}}': pewawancara or '-',
+            '{{instansi}}': instansi or '-',
+            '{{narasumber}}': narasumber or '-',
+            '{{transkripsi}}': teks or '(Tidak ada transkrip)',
+            '{{topik}}': topik or '-'
+        }
+
+        for p in doc.paragraphs:
+            for key, val in replacements.items():
+                if key in p.text:
+                    inline = p.runs
+                    for i in range(len(inline)):
+                        if key in inline[i].text:
+                            text = inline[i].text.replace(key, val)
+                            inline[i].text = text
+        
+        # 3. Simpan & Konversi PDF di /tmp/uploads/
+        pdf_folder = app.config['UPLOAD_FOLDER'] 
+        
+        safe_narasumber = narasumber.replace(" ", "_")
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        pdf_filename = f"wawancara_{token}_{safe_narasumber}_{timestamp}.pdf"
+        docx_filename = pdf_filename.replace(".pdf", ".docx")
+        
+        docx_path = os.path.join(pdf_folder, docx_filename)
+        pdf_path = os.path.join(pdf_folder, pdf_filename)
+        
+        doc.save(docx_path)
+        
+        try:
+            convert(docx_path, pdf_path)
+        except Exception as e:
+            app.logger.error(f"docx2pdf conversion failed: {str(e)}")
+            return {'status': 'error', 'message': f'Gagal konversi PDF: {e}'}, 500
+        
+        # 4. Simpan hasil transkrip ke tabel 'audio_recordings'
+        # Ini akan menimpa/membuat data yang terkait dengan token ini
+        
+        tgl_rekaman = datetime.now().strftime('%Y-%m-%d %H:%M')
+        
+        # Gunakan INSERT ... ON CONFLICT untuk UPSERT (update jika ada, insert jika tidak)
+        cursor.execute("""
+            INSERT INTO audio_recordings 
+            (token, interviewee, interviewer, date, filename, transcript)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (token) DO UPDATE SET
+                interviewee = EXCLUDED.interviewee,
+                interviewer = EXCLUDED.interviewer,
+                date = EXCLUDED.date,
+                filename = EXCLUDED.filename,
+                transcript = EXCLUDED.transcript
+        """, (token, narasumber, pewawancara, tgl_rekaman, pdf_filename, teks))
+        
+        db.commit()
+
+        # Hapus file docx sementara
+        if os.path.exists(docx_path):
+            os.remove(docx_path)
+            
+        app.logger.info(f"PDF disimpan sementara di: {pdf_path}")
+        return {'status': 'ok', 'pdf_path': pdf_path}
+
+    except Exception as e:
+        db.rollback()
+        app.logger.error(f'Gagal save PDF: {str(e)}')
+        return {'status': 'error', 'message': str(e)}, 500
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if 'user' in session:
@@ -773,6 +964,3 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
-
