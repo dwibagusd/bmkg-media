@@ -622,7 +622,7 @@ def generate_report_now():
             
             # 2. PINDAHKAN KURSOR ke bawah gambar header
             # (Angka 50mm ini bisa Anda ubah jika kurang pas)
-            pdf.set_y(100) 
+            pdf.set_y(60) 
         else:
             # Fallback jika 'header.png' tidak ditemukan
             app.logger.warn(f"Header image not found at {header_path}, skipping.")
@@ -1047,6 +1047,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
