@@ -583,17 +583,16 @@ def generate_report_now():
         # atau membuat yang baru jika belum ada.
         cursor.execute("""
             INSERT INTO audio_recordings 
-            (interviewee, interviewer, date, filename, transcript, request_id)
-            SELECT %s, %s, %s, %s, %s, ir.id
+            (interviewee, date, filename, transcript, request_id)
+            SELECT %s, %s, %s, %s, ir.id
             FROM interview_requests ir WHERE ir.token = %s
             ON CONFLICT (request_id) DO UPDATE SET
                 interviewee = EXCLUDED.interviewee,
-                interviewer = EXCLUDED.interviewer,
                 date = EXCLUDED.date,
                 filename = EXCLUDED.filename,
                 transcript = EXCLUDED.transcript
             RETURNING id
-        """, (narasumber, pewawancara, tgl_rekaman, filename, teks, token))
+        """, (narasumber, tgl_rekaman, filename, teks, token))
         
         # Ambil ID dari data yang baru saja di-insert/update
         # (Gunakan fetchone() karena RETURNING mengembalikan baris)
@@ -1035,6 +1034,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
