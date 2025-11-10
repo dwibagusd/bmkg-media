@@ -611,8 +611,28 @@ def generate_report_now():
         
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Arial", 'B', 16)
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        header_path = os.path.join(base_dir, 'static', 'header.png')
+
+        if os.path.exists(header_path):
+            # Sisipkan gambar header di bagian atas
+            # pdf.image(path, x, y, width)
+            # x=10 (margin kiri 10mm), y=10 (margin atas 10mm)
+            # w=190 (lebar 190mm, agar pas di halaman A4 [210mm - 20mm margin])
+            pdf.image(header_path, x=10, y=10, w=190)
+            
+            # Beri jarak 40mm dari atas sebelum mulai menulis teks
+            # (Sesuaikan angka 40 ini jika header Anda lebih tinggi/pendek)
+            pdf.set_y(50) 
+        else:
+            # Fallback jika 'header.png' tidak ditemukan
+            app.logger.warn(f"Header image not found at {header_path}, skipping.")
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(0, 10, "Laporan Wawancara BMKG (Header Missing)", 0, 1, 'C')
+            pdf.ln(10)
         
+        pdf.set_font("Arial", 'B', 16)
         pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
         pdf.ln(10)
         
@@ -1032,6 +1052,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
