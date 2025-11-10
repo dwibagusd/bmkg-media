@@ -18,9 +18,7 @@ import pandas as pd
 from io import BytesIO
 import smtplib
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from docx import Document       
-from docx2pdf import convert    
+from email.mime.multipart import MIMEMultipart   
 import tempfile                          
 
 app = Flask(__name__)
@@ -628,21 +626,14 @@ def generate_pdf(recording_id):
 
     try:
         db = get_db()
-        # Gunakan DictCursor untuk mengakses data berdasarkan nama kolom
         cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # PERBAIKAN: Gunakan SQL JOIN untuk mengambil data lengkap
-        # dari kedua tabel (audio_recordings dan interview_requests)
+        # Ambil data lengkap
         cursor.execute('''
             SELECT
-                ar.token,
-                ar.interviewee,
-                ar.interviewer,
-                ar.date as recording_date,
-                ar.transcript,
-                ir.media_name,
-                ir.topic,
-                ir.method,
+                ar.token, ar.interviewee, ar.interviewer,
+                ar.date as recording_date, ar.transcript,
+                ir.media_name, ir.topic, ir.method,
                 ir.datetime as schedule_time
             FROM audio_recordings ar
             LEFT JOIN interview_requests ir ON ar.token = ir.token
@@ -655,86 +646,54 @@ def generate_pdf(recording_id):
             flash('Recording not found', 'danger')
             return redirect(url_for('recorder'))
 
-        # --- Implementasi Template DOCX (Seperti Kode Lama) ---
-
-        # 1. Tentukan path template. Pastikan file ini ada di Vercel.
-        #    Tempatkan 'template.docx' di folder 'static'
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        doc_path = os.path.join(base_dir, 'static', 'template.docx')
+        # --- Implementasi FPDF ---
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
         
-        if not os.path.exists(doc_path):
-            flash('Template file not found.', 'danger')
-            app.logger.error(f"Template file not found at {doc_path}")
-            return redirect(url_for('recorder'))
+        pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
+        pdf.ln(10)
+        
+        pdf.set_font("Arial", '', 12)
+        pdf.cell(40, 10, "Token:", 0, 0)
+        pdf.cell(0, 10, recording['token'] or '-', 0, 1)
+        pdf.cell(40, 10, "Topik:", 0, 0)
+        pdf.cell(0, 10, recording['topic'] or '-', 0, 1)
+        pdf.cell(40, 10, "Waktu:", 0, 0)
+        pdf.cell(0, 10, recording['schedule_time'] or '-', 0, 1)
+        pdf.cell(40, 10, "Instansi:", 0, 0)
+        pdf.cell(0, 10, recording['media_name'] or '-', 0, 1)
+        pdf.cell(40, 10, "Pewawancara:", 0, 0)
+        pdf.cell(0, 10, recording['interviewer'] or '-', 0, 1)
+        pdf.cell(40, 10, "Narasumber:", 0, 0)
+        pdf.cell(0, 10, recording['interviewee'] or '-', 0, 1)
+        pdf.ln(10)
+        
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(0, 10, "Transkrip Wawancara", 0, 1)
+        pdf.ln(5)
+        
+        pdf.set_font("Arial", '', 11)
+        transcript = recording['transcript'] or '(Tidak ada transkrip)'
+        for line in transcript.split('\n'):
+            pdf.multi_cell(0, 7, line)
+            pdf.ln(2)
 
-        doc = Document(doc_path)
-
-        # 2. Siapkan data pengganti (sesuaikan placeholder di .docx Anda)
-        #    Kode lama Anda menggunakan {{waktu}}, {{jenis}}, dll.
-        replacements = {
-            '{{waktu}}': recording['schedule_time'] or '-',
-            '{{jenis}}': recording['method'] or '-',
-            '{{pewawancara}}': recording['interviewer'] or '-',
-            '{{instansi}}': recording['media_name'] or '-',
-            '{{narasumber}}': recording['interviewee'] or '-',
-            '{{transkripsi}}': recording['transcript'] or '(Tidak ada transkrip)',
-            '{{topik}}': recording['topic'] or '-'
-        }
-
-        # 3. Ganti placeholder di paragraf
-        for p in doc.paragraphs:
-            for key, val in replacements.items():
-                if key in p.text:
-                    # Ganti placeholder sambil mempertahankan style
-                    inline = p.runs
-                    for i in range(len(inline)):
-                        if key in inline[i].text:
-                            text = inline[i].text.replace(key, val)
-                            inline[i].text = text
-
-        # 4. Tentukan path sementara (Vercel HANYA bisa menulis ke /tmp)
-        #    Kita akan menggunakan 'tempfile' untuk membuatnya
-        with tempfile.TemporaryDirectory() as tmpdir:
-            safe_token = recording['token'].replace(" ", "_")
-            
-            docx_filename = f"wawancara_{safe_token}.docx"
-            pdf_filename = f"wawancara_{safe_token}.pdf"
-            
-            docx_path = os.path.join(tmpdir, docx_filename)
-            pdf_path = os.path.join(tmpdir, pdf_filename)
-
-            # 5. Simpan .docx yang sudah diisi ke /tmp
-            doc.save(docx_path)
-            
-            # 6. Konversi .docx ke .pdf di /tmp
-            try:
-                convert(docx_path, pdf_path)
-            except Exception as e:
-                # Ini adalah bagian yang kemungkinan besar GAGAL di Vercel
-                # karena tidak ada LibreOffice
-                app.logger.error(f"docx2pdf conversion failed: {str(e)}")
-                flash('Gagal mengonversi PDF. Dependensi server mungkin hilang.', 'danger')
-                return redirect(url_for('recorder'))
-
-            # 7. Baca file PDF dari /tmp ke buffer
-            if os.path.exists(pdf_path):
-                pdf_buffer = io.BytesIO()
-                with open(pdf_path, 'rb') as f:
-                    pdf_buffer.write(f.read())
-                pdf_buffer.seek(0)
-                
-                # 8. Kirim file buffer ke pengguna
-                return send_file(
-                    pdf_buffer,
-                    as_attachment=True,
-                    download_name=pdf_filename,
-                    mimetype='application/pdf'
-                )
-            else:
-                raise FileNotFoundError("File PDF gagal dibuat setelah konversi.")
+        # Simpan ke buffer
+        buffer = io.BytesIO()
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        buffer.write(pdf_bytes)
+        buffer.seek(0)
+        
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"transkrip_{recording['token']}.pdf",
+            mimetype='application/pdf'
+        )
 
     except Exception as e:
-        flash(f'Error generating PDF: {str(e)}', 'danger')
+        flash(f'Error generating PDF (FPDF): {str(e)}', 'danger')
         app.logger.error(f'PDF generation error: {str(e)}')
         return redirect(url_for('recorder'))
 
@@ -797,8 +756,9 @@ def get_topik(token):
 @app.route('/save_pdf', methods=['POST'])
 def save_pdf():
     """
+    MEMBUAT PDF MENGGUNAKAN FPDF (BUKAN DOCX)
     Menerima data form (token, narasumber, transkrip) dari 'App 1'.
-    Mengambil data lain dari Supabase, membuat DOCX, mengonversi ke PDF,
+    Mengambil data lain dari Supabase, membuat FPDF,
     dan menyimpan hasilnya ke tabel 'audio_recordings'.
     """
     if 'user' not in session or session.get('role') != 'admin':
@@ -826,60 +786,55 @@ def save_pdf():
         instansi = req_data['media_name']
         jenis = req_data['method']
         
-        # 2. Implementasi Template DOCX (Sama seperti /generate-pdf Anda)
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        doc_path = os.path.join(base_dir, 'static', 'template.docx')
+        # 2. Buat PDF menggunakan FPDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
         
-        if not os.path.exists(doc_path):
-            app.logger.error(f"Template file not found at {doc_path}")
-            return {'status': 'error', 'message': 'Template file not found'}, 500
+        # Header
+        pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
+        pdf.ln(10)
+        
+        # Informasi dasar
+        pdf.set_font("Arial", '', 12)
+        pdf.cell(40, 10, "Token:", 0, 0)
+        pdf.cell(0, 10, token, 0, 1)
+        pdf.cell(40, 10, "Topik:", 0, 0)
+        pdf.cell(0, 10, topik, 0, 1)
+        pdf.cell(40, 10, "Waktu:", 0, 0)
+        pdf.cell(0, 10, waktu, 0, 1)
+        pdf.cell(40, 10, "Instansi:", 0, 0)
+        pdf.cell(0, 10, instansi, 0, 1)
+        pdf.cell(40, 10, "Pewawancara:", 0, 0)
+        pdf.cell(0, 10, pewawancara, 0, 1)
+        pdf.cell(40, 10, "Narasumber:", 0, 0)
+        pdf.cell(0, 10, narasumber, 0, 1)
+        pdf.ln(10)
+        
+        # Transkrip
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(0, 10, "Transkrip Wawancara", 0, 1)
+        pdf.ln(5)
+        
+        pdf.set_font("Arial", '', 11)
+        # Handle multi-line text
+        for line in teks.split('\n'):
+            pdf.multi_cell(0, 7, line)
+            pdf.ln(2)
 
-        doc = Document(doc_path)
-        
-        replacements = {
-            '{{waktu}}': waktu or '-',
-            '{{jenis}}': jenis or '-',
-            '{{pewawancara}}': pewawancara or '-',
-            '{{instansi}}': instansi or '-',
-            '{{narasumber}}': narasumber or '-',
-            '{{transkripsi}}': teks or '(Tidak ada transkrip)',
-            '{{topik}}': topik or '-'
-        }
-
-        for p in doc.paragraphs:
-            for key, val in replacements.items():
-                if key in p.text:
-                    inline = p.runs
-                    for i in range(len(inline)):
-                        if key in inline[i].text:
-                            text = inline[i].text.replace(key, val)
-                            inline[i].text = text
-        
-        # 3. Simpan & Konversi PDF di /tmp/uploads/
+        # 3. Simpan PDF ke /tmp/uploads/
         pdf_folder = app.config['UPLOAD_FOLDER'] 
-        
         safe_narasumber = narasumber.replace(" ", "_")
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         pdf_filename = f"wawancara_{token}_{safe_narasumber}_{timestamp}.pdf"
-        docx_filename = pdf_filename.replace(".pdf", ".docx")
-        
-        docx_path = os.path.join(pdf_folder, docx_filename)
         pdf_path = os.path.join(pdf_folder, pdf_filename)
         
-        doc.save(docx_path)
-        
-        try:
-            convert(docx_path, pdf_path)
-        except Exception as e:
-            app.logger.error(f"docx2pdf conversion failed: {str(e)}")
-            return {'status': 'error', 'message': f'Gagal konversi PDF: {e}'}, 500
-        
+        # Simpan file PDF
+        pdf.output(pdf_path)
+
         # 4. Simpan hasil transkrip ke tabel 'audio_recordings'
-        # Ini akan menimpa/membuat data yang terkait dengan token ini
-        
         tgl_rekaman = datetime.now().strftime('%Y-%m-%d %H:%M')
         
-        # Gunakan INSERT ... ON CONFLICT untuk UPSERT (update jika ada, insert jika tidak)
         cursor.execute("""
             INSERT INTO audio_recordings 
             (token, interviewee, interviewer, date, filename, transcript)
@@ -894,16 +849,13 @@ def save_pdf():
         
         db.commit()
 
-        # Hapus file docx sementara
-        if os.path.exists(docx_path):
-            os.remove(docx_path)
-            
-        app.logger.info(f"PDF disimpan sementara di: {pdf_path}")
-        return {'status': 'ok', 'pdf_path': pdf_path}
+        app.logger.info(f"PDF (FPDF) disimpan sementara di: {pdf_path}")
+        # Kirim kembali path agar JavaScript tahu harus redirect
+        return {'status': 'ok', 'pdf_path': pdf_path} 
 
     except Exception as e:
         db.rollback()
-        app.logger.error(f'Gagal save PDF: {str(e)}')
+        app.logger.error(f'Gagal save PDF (FPDF): {str(e)}')
         return {'status': 'error', 'message': str(e)}, 500
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -964,3 +916,4 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
