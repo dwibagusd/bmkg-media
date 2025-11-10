@@ -3,35 +3,84 @@
 {% block scripts %}
 <script>
   document.addEventListener("DOMContentLoaded", function () {
+    // Referensi ke elemen-elemen
     const recordButton = document.getElementById("recordButton");
     const stopButton = document.getElementById("stopButton");
     const audioPlayer = document.getElementById("audioPlayer");
     const saveButton = document.getElementById("saveButton");
     
-    const tokenInput = document.getElementById("token");
-    const intervieweeInput = document.getElementById("interviewee");
-    const interviewerInput = document.getElementById("interviewer");
+    // Referensi elemen formulir baru
+    const tokenSelect = document.getElementById("tokenSelect");
+    const intervieweeSelect = document.getElementById("intervieweeSelect");
+    const tokenInfo = document.getElementById("tokenInfo");
 
+    // Variabel untuk menyimpan data otomatis
+    let autoFilledInterviewer = "";
+    let autoFilledTopic = "";
+    let autoFilledTime = "";
+
+    // Variabel perekaman
     let mediaRecorder;
     let audioChunks = [];
     let isRecording = false;
     let audioBlob;
 
     if (!navigator.mediaDevices) {
-      alert("Browser Anda tidak mendukung fitur perekaman. Gunakan Chrome atau Edge terbaru.");
+      alert("Browser Anda tidak mendukung fitur perekaman.");
     }
 
-    // Start recording
+    // --- FUNGSI BARU UNTUK MENGAMBIL DATA TOKEN ---
+    async function fetchTokenData(token) {
+      if (!token) {
+        tokenInfo.textContent = "";
+        autoFilledInterviewer = "";
+        autoFilledTopic = "";
+        autoFilledTime = "";
+        return;
+      }
+
+      try {
+        // Kita gunakan route /get_topik yang sudah ada, tapi kita modifikasi
+        // agar mengembalikan lebih banyak data
+        const response = await fetch(`/get_topik/${token}`);
+        if (!response.ok) throw new Error('Data token tidak ditemukan');
+        
+        const data = await response.json();
+        
+        if (data.interviewer_name) {
+          // Simpan data ke variabel
+          autoFilledInterviewer = data.interviewer_name;
+          autoFilledTopic = data.topic;
+          autoFilledTime = data.datetime;
+          
+          // Tampilkan info ke pengguna
+          tokenInfo.innerHTML = `
+            <strong>Pewawancara:</strong> ${data.interviewer_name} (${data.media_name})<br>
+            <strong>Topik:</strong> ${data.topic}
+          `;
+        } else {
+          tokenInfo.textContent = "Error: Data tidak lengkap untuk token ini.";
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data token:", error);
+        tokenInfo.textContent = "Gagal mengambil data dari server.";
+      }
+    }
+
+    // --- EVENT LISTENER BARU UNTUK DROPDOWN TOKEN ---
+    tokenSelect.addEventListener("change", function () {
+      fetchTokenData(this.value);
+    });
+
+    // --- FUNGSI PEREKAMAN (Tidak berubah) ---
     recordButton.addEventListener("click", async function () {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
 
-        mediaRecorder.ondataavailable = function (event) {
-          audioChunks.push(event.data);
-        };
+        mediaRecorder.ondataavailable = (event) => audioChunks.push(event.data);
 
-        mediaRecorder.onstop = function () {
+        mediaRecorder.onstop = () => {
           audioBlob = new Blob(audioChunks, { type: "audio/webm" }); 
           audioPlayer.src = URL.createObjectURL(audioBlob);
           audioChunks = [];
@@ -41,46 +90,56 @@
         recordButton.disabled = true;
         stopButton.disabled = false;
         isRecording = true;
-        console.log("Recording started");
       } catch (error) {
         console.error("Error accessing microphone:", error);
         alert("Gagal mengakses mikrofon. Pastikan Anda memberikan izin.");
       }
     });
 
-    // Stop recording
     stopButton.addEventListener("click", function () {
       if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
         recordButton.disabled = false;
         stopButton.disabled = true;
         isRecording = false;
-        console.log("Recording stopped");
       }
     });
 
-    // Save recording
+    // --- FUNGSI SIMPAN (DIMODIFIKASI) ---
     saveButton.addEventListener("click", async function () {
+      const selectedToken = tokenSelect.value;
+      const selectedInterviewee = intervieweeSelect.value;
+
       if (!audioBlob) {
         alert("Tidak ada rekaman yang disimpan. Silakan rekam terlebih dahulu.");
         return;
       }
 
-      if (!tokenInput.value || !intervieweeInput.value || !interviewerInput.value) {
-        alert("Harap isi semua field yang diperlukan (Token, Nama Pewawancara, Nama Narasumber)");
+      // Validasi baru
+      if (!selectedToken || !selectedInterviewee) {
+        alert("Harap isi semua field (Token dan Nama Narasumber)");
         return;
+      }
+      
+      if (!autoFilledInterviewer) {
+          alert("Data token belum terisi otomatis. Pastikan Anda memilih token yang valid.");
+          return;
       }
 
       const formData = new FormData();
       formData.append("audio_file", audioBlob, "recording.webm"); 
-      formData.append("token", tokenInput.value);
-      formData.append("interviewee", intervieweeInput.value);
-      formData.append("interviewer", interviewerInput.value);
       
+      // Kirim data yang sudah di-fetch
+      formData.append("token", selectedToken);
+      formData.append("interviewee", selectedInterviewee);
+      formData.append("interviewer", autoFilledInterviewer); // <- Data otomatis
+      // (Kita tidak perlu kirim topik, karena backend akan mengambilnya lagi saat buat PDF)
+
       try {
         saveButton.disabled = true;
         saveButton.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Menyimpan & Memproses...';
 
+        // Kirim ke route /recorder (tidak berubah)
         const response = await fetch("/recorder", {
           method: "POST",
           body: formData,
@@ -88,12 +147,7 @@
 
         if (response.ok) {
           alert("Rekaman berhasil disimpan! Halaman akan dimuat ulang.");
-          
-          // --- PERUBAHAN 1 DARI 2 ---
-          // Ganti redirect ke 'historical_data' dengan reload halaman saat ini.
-          // Ini memungkinkan Anda melihat rekaman baru muncul di daftar di bawah.
           window.location.reload();
-
         } else {
           throw new Error("Gagal menyimpan rekaman");
         }
@@ -106,7 +160,7 @@
     });
   });
 </script>
-{% endblock %} 
+{% endblock %}
 
 {% block content %}
 <style>
@@ -174,38 +228,59 @@
 <div class="recorder-container">
   <h1>Recorder Wawancara</h1>
 
-  <form>
-    <div class="mb-3">
-      <label for="token" class="form-label">Token Wawancara</label>
-      <input type="text" class="form-control" id="token" placeholder="Masukkan token" />
-    </div>
-    <div class="mb-3">
-      <label for="interviewer" class="form-label">Nama Pewawancara</label>
-      <input type="text" class="form-control" id="interviewer" placeholder="Nama Pewawancara" />
-    </div>
-    <div class="mb-3">
-      <label for="interviewee" class="form-label">Nama Narasumber</label>
-      <input type="text" class="form-control" id="interviewee" placeholder="Nama Narasumber" />
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Rekam Audio</label>
-      <div class="d-flex gap-2 mb-2">
-        <button id="recordButton" type="button" class="btn btn-danger">
-          <i class="bi bi-mic-fill me-1"></i> Mulai Rekam
-        </button>
-        <button id="stopButton" type="button" class="btn btn-secondary" disabled>
-          <i class="bi bi-stop-fill me-1"></i> Stop
-        </button>
-      </div>
-      <audio id="audioPlayer" controls class="w-100"></audio>
-      <small class="text-muted d-block mt-1">Pastikan mikrofon Anda berfungsi dengan baik</small>
-    </div>
-    <div class="d-grid">
-      <button id="saveButton" type="button" class="btn btn-primary">
-        <i class="bi bi-save me-1"></i> Simpan Rekaman
+  <div class="mb-3">
+    <label for="tokenSelect" class="form-label">Token Wawancara</label>
+    <select id="tokenSelect" class="form-control">
+      <option value="">-- Pilih Token --</option>
+      {% for token in tokens %}
+        <option value="{{ token.token }}">{{ token.token }}</option>
+      {% endfor %}
+    </select>
+    <small id="tokenInfo" class="text-muted d-block mt-1"></small>
+  </div>
+
+  <div class="mb-3">
+    <label for="intervieweeSelect" class="form-label">Nama Narasumber (On Duty)</label>
+    <select id="intervieweeSelect" class="form-control">
+        <option value="">-- Pilih Nama --</option>
+        <option value="Oky Sukma Hakim">Oky Sukma Hakim</option>
+        <option value="Andre Wijaya">Andre Wijaya</option>
+        <option value="Arief Krisna Widadi">Arief Krisna Widadi</option>
+        <option value="Ary Pulung Baskoro">Ary Pulung Baskoro</option>
+        <option value="Shanas Septi Prayuda">Shanas Septi Prayuda</option>
+        <option value="Rendy Irawadi">Rendy Irawadi</option>
+        <option value="Thariq Harun Al Rasyid">Thariq Harun Al Rasyid</option>
+        <option value="Bhilda Maulida">Bhilda Maulida</option>
+        <option value="Siska Anggraeni">Siska Anggraeni</option>
+        <option value="Swati Ayudia">Swati Ayudia</option>
+        <option value="Agatha Mayasari">Agatha Mayasari</option>
+        <option value="Levi Ratnasari">Levi Ratnasari</option>
+        <option value="Restina Wardhani">Restina Wardhani</option>
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Rekam Audio</label>
+    <div class="d-flex gap-2 mb-2">
+      <button id="recordButton" type="button" class="btn btn-danger">
+        <i class="bi bi-mic-fill me-1"></i> Mulai Rekam
+      </button>
+      <button id="stopButton" type="button" class="btn btn-secondary" disabled>
+        <i class="bi bi-stop-fill me-1"></i> Stop
       </button>
     </div>
-  </form>
+    <audio id="audioPlayer" controls class="w-100"></audio>
+    <small class="text-muted d-block mt-1">Pastikan mikrofon Anda berfungsi dengan baik</small>
+  </div>
+
+  <div class="d-grid">
+    <button id="saveButton" type="button" class="btn btn-primary">
+      <i class="bi bi-save me-1"></i> Simpan Rekaman
+    </button>
+  </div>
+  <div class="recordings-list">
+    </div>
+</div>
 
   <div class="recordings-list">
     <h4 class="mt-5 mb-3">Rekaman Tersimpan</h4>
@@ -235,3 +310,4 @@
   </div>
 </div>
 {% endblock %}
+
