@@ -7,50 +7,25 @@
     const stopButton = document.getElementById("stopButton");
     const audioPlayer = document.getElementById("audioPlayer");
     const saveButton = document.getElementById("saveButton");
-    const transcriptText = document.getElementById("transcript");
+    
+    // Hapus referensi ke transcriptText
+    // const transcriptText = document.getElementById("transcript"); 
+    
     const tokenInput = document.getElementById("token");
     const intervieweeInput = document.getElementById("interviewee");
     const interviewerInput = document.getElementById("interviewer");
 
     let mediaRecorder;
     let audioChunks = [];
-    let recognition;
     let isRecording = false;
     let audioBlob;
 
     // Check browser compatibility
-    if (!navigator.mediaDevices || (!window.SpeechRecognition && !window.webkitSpeechRecognition)) {
-      alert("Browser Anda tidak mendukung fitur perekaman dan speech-to-text penuh. Gunakan Chrome atau Edge terbaru.");
+    if (!navigator.mediaDevices) {
+      alert("Browser Anda tidak mendukung fitur perekaman. Gunakan Chrome atau Edge terbaru.");
     }
 
-    // Initialize speech recognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "id-ID"; // Bahasa Indonesia
-
-      recognition.onresult = function (event) {
-        let interimTranscript = "";
-        let finalTranscript = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + " ";
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        transcriptText.value = finalTranscript + interimTranscript;
-      };
-
-      recognition.onerror = function (event) {
-        console.error("Speech recognition error", event.error);
-      };
-    }
+    // --- SEMUA KODE SpeechRecognition DIHAPUS DARI SINI ---
 
     // Start recording
     recordButton.addEventListener("click", async function () {
@@ -63,13 +38,15 @@
         };
 
         mediaRecorder.onstop = function () {
-          audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+          // DIUBAH: Gunakan format webm atau ogg, karena lebih umum
+          // Pydub di backend bisa menangani ini
+          audioBlob = new Blob(audioChunks, { type: "audio/webm" }); 
           audioPlayer.src = URL.createObjectURL(audioBlob);
           audioChunks = [];
         };
 
         mediaRecorder.start();
-        if (recognition) recognition.start();
+        // --- recognition.start() DIHAPUS ---
 
         recordButton.disabled = true;
         stopButton.disabled = false;
@@ -86,7 +63,7 @@
     stopButton.addEventListener("click", function () {
       if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
-        if (recognition) recognition.stop();
+        // --- recognition.stop() DIHAPUS ---
 
         recordButton.disabled = false;
         stopButton.disabled = true;
@@ -109,20 +86,28 @@
       }
 
       const formData = new FormData();
-      formData.append("audio_file", audioBlob, "recording.wav");
+      // Kirim sebagai file .webm, ini lebih efisien
+      formData.append("audio_file", audioBlob, "recording.webm"); 
       formData.append("token", tokenInput.value);
       formData.append("interviewee", intervieweeInput.value);
       formData.append("interviewer", interviewerInput.value);
-      formData.append("transcript", transcriptText.value);
+      
+      // --- formData.append("transcript", ...) DIHAPUS ---
+      // Backend Anda (di route /recorder) sekarang akan 100% bertanggung jawab
+      // untuk menjalankan transcribe_audio()
 
       try {
+        // Tampilkan loading/disabled state
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Menyimpan & Memproses...';
+
         const response = await fetch("/recorder", {
           method: "POST",
           body: formData,
         });
 
         if (response.ok) {
-          alert("Rekaman berhasil disimpan!");
+          alert("Rekaman berhasil disimpan! Backend akan memproses transkrip.");
           window.location.reload();
         } else {
           throw new Error("Gagal menyimpan rekaman");
@@ -130,81 +115,17 @@
       } catch (error) {
         console.error("Error saving recording:", error);
         alert("Gagal menyimpan rekaman: " + error.message);
+        saveButton.disabled = false;
+        saveButton.innerHTML = '<i class="bi bi-save me-1"></i> Simpan Rekaman';
       }
     });
   });
 </script>
-{% endblock %} {% block content %}
+{% endblock %} 
+
+{% block content %}
 <style>
-  body {
-    background-color: #f9fafb;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
-    color: #333;
-  }
-
-  .recorder-container {
-    max-width: 960px;
-    margin: 2rem auto;
-    padding: 2rem;
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
-  }
-
-  .recorder-container h1 {
-    font-size: 1.8rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-    color: #1f2937;
-  }
-
-  .form-label {
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-  }
-
-  .form-control {
-    border-radius: 10px;
-    border: 1px solid #d1d5db;
-  }
-
-  .btn-primary {
-    background-color: #007bff;
-    border: none;
-    border-radius: 10px;
-    padding: 0.75rem;
-    font-weight: 500;
-  }
-
-  .btn-primary:hover {
-    background-color: #0069d9;
-  }
-
-  .btn-danger, .btn-secondary {
-    border-radius: 10px;
-    padding: 0.6rem 1rem;
-  }
-
-  .recordings-list {
-    margin-top: 2rem;
-  }
-
-  .recording-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 1rem;
-    margin-bottom: 1rem;
-    background: #fefefe;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-  }
-
-  .recording-card h6 {
-    margin-bottom: 0.25rem;
-  }
-
-  .text-muted {
-    color: #6b7280 !important;
-  }
+  /* ... (CSS Anda tidak perlu diubah, biarkan apa adanya) ... */
 </style>
 
 <div class="recorder-container">
@@ -240,11 +161,6 @@
       <small class="text-muted d-block mt-1">Pastikan mikrofon Anda berfungsi dengan baik</small>
     </div>
 
-    <div class="mb-3">
-      <label for="transcript" class="form-label">Transkrip Otomatis</label>
-      <textarea class="form-control" id="transcript" rows="6" placeholder="Transkrip akan muncul otomatis..."></textarea>
-    </div>
-
     <div class="d-grid">
       <button id="saveButton" type="button" class="btn btn-primary">
         <i class="bi bi-save me-1"></i> Simpan Rekaman
@@ -262,17 +178,11 @@
       <h6>{{ recording.interviewee }}</h6>
       <p class="text-muted mb-1">Token: {{ recording.token }}</p>
       <p class="text-muted mb-2">Pewawancara: {{ recording.interviewer }} | Tanggal: {{ recording.date }}</p>
+      
       <audio controls>
         <source src="{{ url_for('static', filename='uploads/' + recording.filename) }}" type="audio/wav" />
       </audio>
+      
       <div class="mt-2">
         <a href="/generate-pdf/{{ recording.id }}" class="btn btn-sm btn-outline-primary">
-          <i class="bi bi-file-earmark-pdf"></i> Unduh PDF
-        </a>
-      </div>
-    </div>
-    {% endfor %}
-    {% endif %}
-  </div>
-</div>
-{% endblock %}
+          <i class="bi bi-file-earmark-pdf"></i> Unduh
