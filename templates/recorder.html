@@ -108,7 +108,7 @@
 
         if (response.ok) {
           alert("Rekaman berhasil disimpan! Backend akan memproses transkrip.");
-          window.location.reload();
+          window.location.href = "{{ url_for('historical_data_view') }}";
         } else {
           throw new Error("Gagal menyimpan rekaman");
         }
@@ -199,4 +199,5 @@
     {% endif %}
   </div>
 {% endblock %}
+
 
