@@ -753,13 +753,13 @@ def get_topik(token):
 
 # ---
 
-@app.route('/save_pdf', methods=['POST'])
-def save_pdf():
+@app.route('/save_transcript', methods=['POST'])
+def save_transcript():
     """
-    MEMBUAT PDF MENGGUNAKAN FPDF (BUKAN DOCX)
+    HANYA MENYIMPAN DATA (BUKAN FILE)
     Menerima data form (token, narasumber, transkrip) dari 'App 1'.
-    Mengambil data lain dari Supabase, membuat FPDF,
-    dan menyimpan hasilnya ke tabel 'audio_recordings'.
+    Mengambil data lain dari Supabase, dan MENYIMPANNYA ke tabel 'audio_recordings'.
+    Mengembalikan ID dari baris yang baru disimpan.
     """
     if 'user' not in session or session.get('role') != 'admin':
         return {'status': 'error', 'message': 'Unauthorized'}, 403
@@ -772,8 +772,7 @@ def save_pdf():
         token = data['token']
         narasumber = data['narasumber']
         teks = data['transkripsi']
-        topik = data['topik'] 
-
+        
         # 1. Ambil data pelengkap dari Supabase
         cursor.execute("SELECT * FROM interview_requests WHERE token = %s", (token,))
         req_data = cursor.fetchone()
@@ -782,58 +781,14 @@ def save_pdf():
             return {'status': 'error', 'message': 'Token tidak ditemukan'}, 404
         
         pewawancara = req_data['interviewer_name']
-        waktu = req_data['datetime']
-        instansi = req_data['media_name']
-        jenis = req_data['method']
-        
-        # 2. Buat PDF menggunakan FPDF
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", 'B', 16)
-        
-        # Header
-        pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
-        pdf.ln(10)
-        
-        # Informasi dasar
-        pdf.set_font("Arial", '', 12)
-        pdf.cell(40, 10, "Token:", 0, 0)
-        pdf.cell(0, 10, token, 0, 1)
-        pdf.cell(40, 10, "Topik:", 0, 0)
-        pdf.cell(0, 10, topik, 0, 1)
-        pdf.cell(40, 10, "Waktu:", 0, 0)
-        pdf.cell(0, 10, waktu, 0, 1)
-        pdf.cell(40, 10, "Instansi:", 0, 0)
-        pdf.cell(0, 10, instansi, 0, 1)
-        pdf.cell(40, 10, "Pewawancara:", 0, 0)
-        pdf.cell(0, 10, pewawancara, 0, 1)
-        pdf.cell(40, 10, "Narasumber:", 0, 0)
-        pdf.cell(0, 10, narasumber, 0, 1)
-        pdf.ln(10)
-        
-        # Transkrip
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 10, "Transkrip Wawancara", 0, 1)
-        pdf.ln(5)
-        
-        pdf.set_font("Arial", '', 11)
-        # Handle multi-line text
-        for line in teks.split('\n'):
-            pdf.multi_cell(0, 7, line)
-            pdf.ln(2)
-
-        # 3. Simpan PDF ke /tmp/uploads/
-        pdf_folder = app.config['UPLOAD_FOLDER'] 
-        safe_narasumber = narasumber.replace(" ", "_")
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        pdf_filename = f"wawancara_{token}_{safe_narasumber}_{timestamp}.pdf"
-        pdf_path = os.path.join(pdf_folder, pdf_filename)
-        
-        # Simpan file PDF
-        pdf.output(pdf_path)
-
-        # 4. Simpan hasil transkrip ke tabel 'audio_recordings'
         tgl_rekaman = datetime.now().strftime('%Y-%m-%d %H:%M')
+        
+        # 2. Simpan hasil transkrip ke tabel 'audio_recordings'
+        # Gunakan INSERT ... ON CONFLICT (UPSERT) dan RETURNING id
+        
+        # Nama file PDF akan dibuat 'on-the-fly' nanti, 
+        # kita bisa simpan nama placeholder atau biarkan kosong
+        placeholder_filename = f"transkrip_{token}.pdf" 
         
         cursor.execute("""
             INSERT INTO audio_recordings 
@@ -845,17 +800,21 @@ def save_pdf():
                 date = EXCLUDED.date,
                 filename = EXCLUDED.filename,
                 transcript = EXCLUDED.transcript
-        """, (token, narasumber, pewawancara, tgl_rekaman, pdf_filename, teks))
+            RETURNING id 
+        """, (token, narasumber, pewawancara, tgl_rekaman, placeholder_filename, teks))
+        
+        # 3. Ambil ID yang baru saja dibuat
+        new_id = cursor.fetchone()['id']
         
         db.commit()
 
-        app.logger.info(f"PDF (FPDF) disimpan sementara di: {pdf_path}")
-        # Kirim kembali path agar JavaScript tahu harus redirect
-        return {'status': 'ok', 'pdf_path': pdf_path} 
+        app.logger.info(f"Transkrip disimpan/diperbarui. ID: {new_id}")
+        # 4. Kembalikan ID ke frontend
+        return {'status': 'ok', 'id': new_id} 
 
     except Exception as e:
         db.rollback()
-        app.logger.error(f'Gagal save PDF (FPDF): {str(e)}')
+        app.logger.error(f'Gagal save transkrip: {str(e)}')
         return {'status': 'error', 'message': str(e)}, 500
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -916,4 +875,5 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
