@@ -19,6 +19,7 @@
     let autoFilledMedia = "";
     let autoFilledTopic = "";
     let autoFilledTime = "";
+    let autoFilledMethod = "";
 
     // Variabel Perekaman
     let mediaRecorder;
@@ -102,6 +103,7 @@
           autoFilledMedia = data.media_name;
           autoFilledTopic = data.topic;
           autoFilledTime = data.datetime;
+          autoFilledMethod = data.method;
           
           // Tampilkan info ke pengguna
           tokenInfo.innerHTML = `
@@ -211,6 +213,7 @@
       formData.append("media_name", autoFilledMedia);
       formData.append("topic", autoFilledTopic);
       formData.append("datetime", autoFilledTime);
+      formData.append("method", autoFilledMethod);
 
       try {
         saveButton.disabled = true;
@@ -320,3 +323,4 @@
   
   </div>
 {% endblock %}
+
