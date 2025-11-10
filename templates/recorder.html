@@ -8,18 +8,18 @@
     const recordButton = document.getElementById("recordButton");
     const stopButton = document.getElementById("stopButton");
     const audioPlayer = document.getElementById("audioPlayer");
-    const saveButton = document.getElementById("saveButton"); // Tombol utama
+    const saveButton = document.getElementById("saveButton");
     const tokenSelect = document.getElementById("tokenSelect");
     const intervieweeSelect = document.getElementById("intervieweeSelect");
     const tokenInfo = document.getElementById("tokenInfo");
-    const transcriptText = document.getElementById("transcriptText"); // Textarea untuk STT
+    const transcriptText = document.getElementById("transcriptText");
 
     // Variabel untuk data auto-fill
     let autoFilledInterviewer = "";
     let autoFilledMedia = "";
     let autoFilledTopic = "";
     let autoFilledTime = "";
-    let autoFilledMethod = "";
+    let autoFilledMethod = ""; // (Kita tambahkan ini di langkah terakhir)
 
     // Variabel Perekaman
     let mediaRecorder;
@@ -29,51 +29,36 @@
     
     // Variabel Speech-to-Text (STT)
     let recognition;
-    let finalTranscript = ''; // Menyimpan teks final
+    let finalTranscript = '';
 
     // --- Inisialisasi Speech Recognition (STT) ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
-      recognition.continuous = true; // Terus merekam
-      recognition.interimResults = true; // Tampilkan hasil sementara
+      recognition.continuous = true;
+      recognition.interimResults = true;
       recognition.lang = "id-ID";
 
-      // Saat STT mendapatkan hasil
       recognition.onresult = (event) => {
         let interimTranscript = '';
-        // Ulangi hasil untuk membangun string
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' '; // Tambahkan ke transkrip final
+            finalTranscript += transcript + ' ';
           } else {
-            interimTranscript += transcript; // Kumpulkan transkrip sementara
+            interimTranscript += transcript;
           }
         }
-        // Perbarui textarea dengan gabungan final + sementara
         transcriptText.value = finalTranscript + interimTranscript;
       };
 
-      // Tangani error STT
       recognition.onerror = (event) => {
         console.error("Speech recognition error", event.error);
-        if(event.error == 'no-speech' || event.error == 'audio-capture') {
-           // Jangan tampilkan alert jika hanya hening atau error mikrofon
-        } else {
-            alert(`Terjadi error STT: ${event.error}`);
-        }
       };
 
-      // Saat STT berhenti
       recognition.onend = () => {
         if (isRecording) {
-          // Jika berhenti tapi kita masih merekam, mulai lagi
-          try { 
-            recognition.start(); 
-          } catch(e) { 
-            console.warn("STT restart blocked by browser."); 
-          }
+          try { recognition.start(); } catch(e) { console.warn("STT restart blocked."); }
         }
       };
     } else {
@@ -82,7 +67,7 @@
     // --- Akhir Inisialisasi STT ---
 
 
-    // --- Fungsi Otomatisasi Form (Sudah Benar) ---
+    // --- Fungsi Otomatisasi Form ---
     async function fetchTokenData(token) {
       if (!token) {
         tokenInfo.textContent = "";
@@ -90,6 +75,7 @@
         autoFilledMedia = "";
         autoFilledTopic = "";
         autoFilledTime = "";
+        autoFilledMethod = "";
         return;
       }
       try {
@@ -98,17 +84,16 @@
         
         const data = await response.json();
         if (data.interviewer_name) {
-          // Simpan data ke variabel JavaScript
           autoFilledInterviewer = data.interviewer_name;
           autoFilledMedia = data.media_name;
           autoFilledTopic = data.topic;
           autoFilledTime = data.datetime;
-          autoFilledMethod = data.method;
-          
-          // Tampilkan info ke pengguna
+          autoFilledMethod = data.method; // (Mengambil data 'method')
+
           tokenInfo.innerHTML = `
-            <strong>Pewawancara:</strong> ${data.interviewer_name} (${data.media_name})<br>
-            <strong>Topik:</strong> ${data.topic}
+            <strong class="d-block">Pewawancara:</strong> ${data.interviewer_name} (${data.media_name})
+            <strong class="d-block">Topik:</strong> ${data.topic}
+            <strong class="d-block">Saluran:</strong> ${data.method}
           `;
         } else {
           tokenInfo.textContent = "Error: Data tidak lengkap.";
@@ -119,12 +104,11 @@
       }
     }
     
-    // Panggil fungsi di atas saat token diganti
     tokenSelect.addEventListener("change", function () {
       fetchTokenData(this.value);
     });
 
-    // --- Kontrol Perekaman (DIMODIFIKASI) ---
+    // --- Kontrol Perekaman ---
     recordButton.addEventListener("click", async function () {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -138,17 +122,13 @@
           audioPlayer.src = URL.createObjectURL(audioBlob);
         };
 
-        // Mulai media recorder
         mediaRecorder.start();
-        
-        // Mulai juga STT
         if (recognition) {
-            finalTranscript = ''; // Reset transkrip
-            transcriptText.value = ''; // Kosongkan textarea
-            recognition.start(); // Mulai STT
+            finalTranscript = '';
+            transcriptText.value = '';
+            recognition.start();
         }
 
-        // Atur tombol
         recordButton.disabled = true;
         stopButton.disabled = false;
         isRecording = true;
@@ -160,34 +140,27 @@
 
     stopButton.addEventListener("click", function () {
       if (mediaRecorder && isRecording) {
-        // Hentikan media recorder
         mediaRecorder.stop();
+        if (recognition) recognition.stop();
         
-        // Hentikan juga STT
-        if (recognition) {
-          recognition.stop();
-        }
-        
-        // Atur tombol
         recordButton.disabled = false;
         stopButton.disabled = true;
         isRecording = false;
       }
     });
 
-    // --- FUNGSI SIMPAN & UNDUH PDF (Alur Kerja Baru) ---
+    // --- FUNGSI SIMPAN & UNDUH PDF ---
     saveButton.addEventListener("click", async function () {
       const selectedToken = tokenSelect.value;
       const selectedInterviewee = intervieweeSelect.value;
-      const transcriptValue = transcriptText.value; // Ambil teks dari STT
+      const transcriptValue = transcriptText.value;
 
-      // Validasi
       if (!selectedToken || !selectedInterviewee) {
         alert("Harap isi semua field (Token dan Nama Narasumber)");
         return;
       }
       if (transcriptValue.trim().length === 0) {
-        alert("Transkrip masih kosong. Silakan rekam suara Anda atau ketik manual.");
+        alert("Transkrip masih kosong. Silakan rekam suara Anda.");
         return;
       }
       if (!autoFilledInterviewer) {
@@ -195,53 +168,45 @@
         return;
       }
 
-      // Buat FormData untuk dikirim
       const formData = new FormData();
       
-      // 1. Kirim file audio (jika ada)
       if (audioBlob) {
          formData.append("audio_file", audioBlob, "recording.webm"); 
       }
       
-      // 2. Kirim data formulir
       formData.append("token", selectedToken);
       formData.append("interviewee", selectedInterviewee);
-      formData.append("transcript", transcriptValue); // <- Teks dari textarea
-      
-      // 3. Kirim data auto-fill untuk PDF
+      formData.append("transcript", transcriptValue);
       formData.append("interviewer", autoFilledInterviewer);
       formData.append("media_name", autoFilledMedia);
       formData.append("topic", autoFilledTopic);
       formData.append("datetime", autoFilledTime);
-      formData.append("method", autoFilledMethod);
-
+      formData.append("method", autoFilledMethod); // (Mengirim data 'method')
+      
       try {
         saveButton.disabled = true;
         saveButton.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Memproses PDF...';
 
-        // Panggil route backend baru
-        // (Pastikan Anda sudah punya route /generate_report_now di Python)
         const response = await fetch("/generate_report_now", {
           method: "POST",
           body: formData,
         });
 
         if (response.ok) {
-          // Sukses! Server mengembalikan file PDF
           const blob = await response.blob();
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `Laporan_${selectedToken}.pdf`; // Nama file unduhan
+          a.download = `Laporan_${selectedToken}.pdf`;
           document.body.appendChild(a);
-          a.click(); // Memicu unduhan
+          a.click();
           a.remove();
           window.URL.revokeObjectURL(url);
           
           alert("Laporan PDF berhasil diunduh! Halaman akan dimuat ulang.");
-          window.location.reload(); // Muat ulang halaman
+          window.location.reload();
+
         } else {
-          // Tangani error dari server
           const errorData = await response.json();
           throw new Error(errorData.message || "Gagal membuat PDF");
         }
@@ -258,7 +223,67 @@
 
 {% block content %}
 <style>
-  /* ... (CSS Anda sudah benar, tidak perlu diubah) ... */
+  body {
+    background-color: #f9fafb;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    color: #333;
+  }
+  .recorder-container {
+    max-width: 960px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  }
+  .recorder-container h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #1f2937;
+  }
+  .form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+  /* Ini akan memberi style pada dropdown dan textarea */
+  .form-control {
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    padding: 0.75rem;
+  }
+  /* Ini memberi style pada <select> */
+  .form-select {
+     border-radius: 10px;
+     border: 1px solid #d1d5db;
+     padding: 0.75rem;
+  }
+  .btn-primary {
+    background-color: #007bff;
+    border: none;
+    border-radius: 10px;
+    padding: 0.75rem;
+    font-weight: 500;
+  }
+  .btn-primary:hover {
+    background-color: #0069d9;
+  }
+  .btn-danger, .btn-secondary {
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+  }
+  .text-muted {
+    color: #6b7280 !important;
+  }
+  /* Mengatur tampilan info token agar lebih rapi */
+  #tokenInfo {
+    padding: 0.5rem 0.25rem;
+    line-height: 1.6;
+  }
+  #tokenInfo strong {
+      display: inline-block;
+      min-width: 100px;
+  }
 </style>
 
 <div class="recorder-container">
@@ -266,7 +291,7 @@
 
   <div class="mb-3">
     <label for="tokenSelect" class="form-label">Token Wawancara</label>
-    <select id="tokenSelect" class="form-control">
+    <select id="tokenSelect" class="form-select">
       <option value="">-- Pilih Token --</option>
       {% for token in tokens %}
         <option value="{{ token.token }}">{{ token.token }}</option>
@@ -277,7 +302,7 @@
 
   <div class="mb-3">
     <label for="intervieweeSelect" class="form-label">Nama Narasumber (On Duty)</label>
-    <select id="intervieweeSelect" class="form-control">
+    <select id="intervieweeSelect" class="form-select">
         <option value="">-- Pilih Nama --</option>
         <option value="Oky Sukma Hakim">Oky Sukma Hakim</option>
         <option value="Andre Wijaya">Andre Wijaya</option>
@@ -321,6 +346,5 @@
     </button>
   </div>
   
-  </div>
+</div>
 {% endblock %}
-
