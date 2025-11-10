@@ -635,19 +635,22 @@ def generate_report_now():
 
         # 4. Info Wawancara (sekarang berada di bawah judul)
         pdf.set_font("Arial", '', 12)
+        
+        label_width = 50
+        
         # pdf.cell(40, 10, "Token:", 0, 0)
         # pdf.cell(0, 10, token, 0, 1)
-        pdf.cell(40, 10, "Waktu Jadwal:", 0, 0)
+        pdf.cell(label_width, 10, "Waktu Jadwal :", 0, 0)
         pdf.cell(0, 10, datetime_req, 0, 1)
-        pdf.cell(40, 10, "Saluran Wawancara:", 0, 0) 
+        pdf.cell(label_width, 10, "Saluran Wawancara :", 0, 0) 
         pdf.cell(0, 10, method, 0, 1)
-        pdf.cell(40, 10, "Wartawan:", 0, 0)
+        pdf.cell(label_width, 10, "Wartawan :", 0, 0)
         pdf.cell(0, 10, pewawancara, 0, 1)
-        pdf.cell(40, 10, "Nama Media:", 0, 0)
+        pdf.cell(label_width, 10, "Nama Media :", 0, 0)
         pdf.cell(0, 10, media_name, 0, 1)
-        pdf.cell(40, 10, "Narasumber (On Duty):", 0, 0)
+        pdf.cell(label_width, 10, "Narasumber (On Duty) :", 0, 0)
         pdf.cell(0, 10, narasumber, 0, 1)
-        pdf.cell(40, 10, "Topik:", 0, 0)
+        pdf.cell(label_width, 10, "Topik :", 0, 0)
         pdf.cell(0, 10, topic, 0, 1)
         pdf.ln(10)
         
@@ -1050,6 +1053,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
