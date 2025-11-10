@@ -645,7 +645,7 @@ def generate_report_now():
 
         # 4. Siapkan file untuk dikirim
         pdf_buffer = io.BytesIO()
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        pdf_bytes = pdf.output(dest='S')
         pdf_buffer.write(pdf_bytes)
         pdf_buffer.seek(0)
         
@@ -1032,6 +1032,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
