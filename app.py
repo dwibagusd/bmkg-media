@@ -1,5 +1,5 @@
 from werkzeug.utils import secure_filename
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g, send_from_directory
 from datetime import datetime
 import os
 import random
@@ -618,6 +618,22 @@ def recorder():
     # Render template dengan KEDUA variabel
     return render_template('recorder.html', tokens=tokens, recordings=recordings)
 
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    """
+    Menyajikan file dengan aman dari app.config['UPLOAD_FOLDER'] (yaitu /tmp/uploads/).
+    Ini diperlukan agar file audio dapat diputar di browser.
+    """
+    if 'user' not in session:
+        flash('Anda harus login untuk mengakses file ini.', 'danger')
+        return redirect(url_for('login'))
+
+    try:
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=False)
+    except FileNotFoundError:
+        app.logger.error(f"File tidak ditemukan di /uploads/: {filename}")
+        return "File not found", 404
+
 @app.route('/generate-pdf/<int:recording_id>')
 def generate_pdf(recording_id):
     if 'user' not in session:
@@ -875,5 +891,6 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
