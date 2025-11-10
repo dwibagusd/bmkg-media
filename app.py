@@ -141,11 +141,10 @@ def init_db():
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS audio_recordings (
             id SERIAL PRIMARY KEY,
-            token TEXT NOT NULL,
-            interviewee TEXT NOT NULL,
-            interviewer TEXT NOT NULL,
-            date TEXT NOT NULL,
-            filename TEXT NOT NULL,
+            request_id INT8 NOT NULL UNIQUE REFERENCES public.interview_requests(id) ON DELETE CASCADE,
+            interviewee TEXT,
+            date TIMESTAMPTZ,
+            filename TEXT,
             transcript TEXT
         )
         ''')
@@ -461,7 +460,7 @@ def export_data():
         # Ambil data dari database
         query = '''
             SELECT 
-                ir.token,
+                iir.token,
                 ir.interviewer_name,
                 ir.media_name,
                 ir.topic,
@@ -472,7 +471,7 @@ def export_data():
                 ar.interviewee,
                 ar.date as recording_date
             FROM interview_requests ir
-            LEFT JOIN audio_recordings ar ON ir.token = ar.token
+            LEFT JOIN audio_recordings ar ON ir.id = ar.request_id
             ORDER BY ir.request_date DESC
         '''
         
@@ -777,12 +776,11 @@ def generate_pdf(recording_id):
         # Ambil data lengkap
         cursor.execute('''
             SELECT
-                ar.token, ar.interviewee, ar.interviewer,
-                ar.date as recording_date, ar.transcript,
-                ir.media_name, ir.topic, ir.method,
-                ir.datetime as schedule_time
+                ar.interviewee, ar.date as recording_date, ar.transcript,
+                ir.token, ir.interviewer_name, ir.media_name, ir.topic, 
+                ir.method, ir.datetime as schedule_time
             FROM audio_recordings ar
-            LEFT JOIN interview_requests ir ON ar.token = ir.token
+            LEFT JOIN interview_requests ir ON ar.request_id = ir.id
             WHERE ar.id = %s
         ''', (recording_id,))
         
@@ -1034,6 +1032,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
