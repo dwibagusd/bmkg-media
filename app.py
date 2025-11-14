@@ -128,7 +128,7 @@ def init_db():
         db.commit()
         print("Database initialized successfully.")
     except psycopg2.errors.DuplicateObject:
-        # Jika tipe ENUM sudah ada, lanjutkan saja
+        # Jika tipe ENUM atau tabel sudah ada, lanjutkan saja
         print("Database types/tables already exist, skipping creation.")
         db.rollback()
     except Exception as e:
@@ -522,28 +522,45 @@ def generate_pdf(recording_id):
             flash('Recording not found', 'danger')
             return redirect(url_for('historical_data_view'))
 
-        # (Logika FPDF Anda - dipersingkat)
+        # (Logika FPDF Anda - salin dari /generate_report_now)
         pdf = FPDF()
         pdf.add_page()
-        # TODO: Duplikasi kode dari /generate_report_now.
-        # Anda harus menyalin/menempelkan logika pembuatan FPDF 
-        # lengkap dari /generate_report_now ke sini agar identik.
         
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        header_path = os.path.join(base_dir, 'static', 'header.png')
+
+        if os.path.exists(header_path):
+            pdf.image(header_path, x=10, y=10, w=190)
+            pdf.set_y(60) 
+        else:
+            pdf.set_y(10)
+
         pdf.set_font("Arial", 'B', 16)
-        pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
+        pdf.cell(0, 10, "NASKAH WAWANCARA (Historis)", 0, 1, 'C')
         pdf.ln(10)
         
         pdf.set_font("Arial", '', 12)
-        label_width = 50
-        pdf.cell(label_width, 8, "Token:", 0, 0)
-        pdf.cell(0, 8, recording['token'] or '-', 0, 1)
-        pdf.cell(label_width, 8, "Topik:", 0, 0)
+        label_width = 50 
+        
+        # Konversi datetime ke string
+        schedule_time_str = recording['schedule_time'].isoformat() if recording['schedule_time'] else '-'
+        
+        pdf.cell(label_width, 8, "Waktu Jadwal :", 0, 0)
+        pdf.cell(0, 8, schedule_time_str, 0, 1)
+        pdf.cell(label_width, 8, "Saluran Wawancara :", 0, 0) 
+        pdf.cell(0, 8, recording['method'] or '-', 0, 1)
+        pdf.cell(label_width, 8, "Wartawan :", 0, 0)
+        pdf.cell(0, 8, recording['interviewer_name'] or '-', 0, 1)
+        pdf.cell(label_width, 8, "Nama Media :", 0, 0)
+        pdf.cell(0, 8, recording['media_name'] or '-', 0, 1)
+        pdf.cell(label_width, 8, "Narasumber (On Duty) :", 0, 0)
+        pdf.cell(0, 8, recording['interviewee'] or '-', 0, 1)
+        pdf.cell(label_width, 8, "Topik :", 0, 0)
         pdf.cell(0, 8, recording['topic'] or '-', 0, 1)
-        # ... (Sisa field) ...
         pdf.ln(10)
         
         pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 10, "Transkrip Wawancara", 0, 1)
+        pdf.cell(0, 10, "Isi Naskah :", 0, 1)
         pdf.ln(5)
         
         pdf.set_font("Arial", '', 11)
