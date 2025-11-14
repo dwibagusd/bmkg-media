@@ -13,5 +13,3 @@ openpyxl>=3.0.0
 XlsxWriter>=3.0.0
 python-docx
 docx2pdf
-scikit-learn
-nltk
