@@ -192,8 +192,8 @@
             {% if 'user' in session %}
             <li class="nav-item"><a class="nav-link" href="/historical-data">Data Historis</a></li>
             {% if session['role'] == 'admin' %}
-            <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
-            {% if session['role'] == 'admin' %}
+            <!-- <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+            {% if session['role'] == 'admin' %} -->
             <li class="nav-item"><a class="nav-link" href="/recorder">Recorder</a></li>
             {% endif %}
             <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
@@ -285,6 +285,7 @@
     {% block scripts %}{% endblock %}
   </body>
 </html>
+
 
 
 
