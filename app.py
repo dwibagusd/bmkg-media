@@ -596,7 +596,7 @@ def generate_pdf(recording_id):
 
         buffer = io.BytesIO()
         pdf_bytes = pdf.output(dest='S')
-        buffer.write(pdf_bytes)
+        buffer.write(pdf_bytes_str.encode('latin-1'))
         buffer.seek(0)
         
         return send_file(
@@ -722,5 +722,6 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
