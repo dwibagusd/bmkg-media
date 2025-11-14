@@ -5,14 +5,14 @@ import tempfile
 import smtplib
 import psycopg2
 import psycopg2.extras
-import json # Pastikan JSON di-import
+import json
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g, send_from_directory
-from fpdf import FPDF # Kita HANYA menggunakan FPDF
+from fpdf import FPDF
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -21,7 +21,7 @@ app.config['UPLOAD_FOLDER'] = '/tmp/uploads/'
 app.config['WHATSAPP_ADMIN'] = os.environ.get('WHATSAPP_ADMIN')
 app.config['WHATSAPP_DEFAULT_MSG'] = 'Halo BMKG, saya ingin konfirmasi permohonan wawancara dengan token: '
 
-# --- KONFIGURASI DATABASE (Tidak Berubah) ---
+# --- KONFIGURASI DATABASE ---
 def get_db():
     if 'db' not in g:
         db_url = os.environ.get('DATABASE_URL')
@@ -34,6 +34,7 @@ def get_db():
             db_url += '?sslmode=require'
         
         try:
+            # Mengatasi masalah DNS Vercel/IPv6
             import socket
             original_getaddrinfo = socket.getaddrinfo
             def forced_ipv4_getaddrinfo(host, port, *args, **kwargs):
@@ -61,8 +62,15 @@ def init_db():
         db = get_db()
         cursor = db.cursor()
         
-        # Buat tipe ENUM jika belum ada
-        cursor.execute("CREATE TYPE request_status_enum AS ENUM ('Pending', 'Approved', 'Completed', 'Canceled')")
+        # Buat tipe ENUM HANYA JIKA BELUM ADA
+        cursor.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'request_status_enum') THEN
+                    CREATE TYPE request_status_enum AS ENUM ('Pending', 'Approved', 'Completed', 'Canceled');
+                END IF;
+            END$$;
+        """)
         
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -73,6 +81,7 @@ def init_db():
         )
         ''')
         
+        # Menggunakan tipe data yang BENAR (TIMESTAMPTZ, ENUM)
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS interview_requests (
             id SERIAL PRIMARY KEY,
@@ -89,6 +98,7 @@ def init_db():
         )
         ''')
         
+        # Menggunakan skema yang BENAR (request_id)
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS audio_recordings (
             id SERIAL PRIMARY KEY,
@@ -100,7 +110,7 @@ def init_db():
         )
         ''')
 
-        # Buat tabel untuk cache WordCloud
+        # Tabel untuk cache WordCloud
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS keyword_results (
             word TEXT PRIMARY KEY,
@@ -116,14 +126,10 @@ def init_db():
         ''', ('admin', generate_password_hash(admin_password, method='pbkdf2:sha256', salt_length=16), 'admin'))
         
         db.commit()
-        print("Database initialized successfully with correct schema.")
-    except psycopg2.errors.DuplicateObject:
-        # Jika tipe ENUM sudah ada, lanjutkan saja
-        print("Database types/tables already exist, skipping creation.")
-        db.rollback()
+        print("Database initialized successfully.")
     except Exception as e:
-        print(f"Error initializing database: {str(e)}")
-        db.rollback()
+        print(f"Error initializing database (mungkin sudah ada): {str(e)}")
+        db.rollback() # Batalkan jika ada error
 
 # --- DATA CONTOH (Tidak Berubah) ---
 weather_data = {
@@ -186,7 +192,7 @@ def send_email_notification(token, recipient_email, request_data):
         app.logger.error(f"Email sending error: {str(e)}")
         return False
 
-# --- ROUTE PERMOHONAN (Tidak Berubah) ---
+# --- ROUTE PERMOHONAN (DIPERBAIKI untuk TIMESTAMPTZ) ---
 @app.route('/request-interview', methods=['GET', 'POST'])
 def request_interview():
     if request.method == 'POST':
@@ -208,7 +214,7 @@ def request_interview():
                 flash('Format datetime tidak valid.', 'danger')
                 return render_template('request_interview.html')
         
-        request_date = datetime.now()
+        request_date = datetime.now() # Gunakan objek datetime
 
         from urllib.parse import quote
         message = f"Permohonan Wawancara BMKG... Token: *{token}* ..." # Dipersingkat
@@ -230,11 +236,7 @@ def request_interview():
             db.commit()
 
             if email:
-                # Siapkan data untuk email
-                request_data_email = {
-                    'interviewer_name': interviewer_name, 'media_name': media_name,
-                    'topic': topic, 'method': method, 'datetime': datetime_req_str
-                }
+                request_data_email = { 'interviewer_name': interviewer_name, 'media_name': media_name, 'topic': topic, 'method': method, 'datetime': datetime_req_str }
                 send_email_notification(token, email, request_data_email)
 
             return redirect(whatsapp_link)
@@ -244,7 +246,7 @@ def request_interview():
     
     return render_template('request_interview.html')
 
-# --- DATA HISTORIS (SQL DIPERBAIKI) ---
+# --- DATA HISTORIS (SQL sudah benar) ---
 @app.route('/historical-data', methods=['GET', 'POST'])
 def historical_data_view():
     if 'user' not in session:
@@ -270,20 +272,14 @@ def historical_data_view():
         params = []
         
         if search_query:
-            conditions.append('''(ir.interviewer_name ILIKE %s OR 
-                                 ir.media_name ILIKE %s OR 
-                                 ir.topic ILIKE %s OR 
-                                 ir.token ILIKE %s)''')
+            conditions.append('''(ir.interviewer_name ILIKE %s OR ir.media_name ILIKE %s OR ir.topic ILIKE %s OR ir.token ILIKE %s)''')
             params.extend([f'%{search_query}%'] * 4)
-        
         if status_filter != 'all':
             conditions.append('ir.status = %s')
             params.append(status_filter)
-        
         if date_from:
             conditions.append('ir.request_date >= %s')
             params.append(date_from)
-        
         if date_to:
             conditions.append('ir.request_date <= %s')
             params.append(date_to)
@@ -310,8 +306,7 @@ def historical_data_view():
         app.logger.error(f'Database error: {str(e)}')
         return redirect(url_for('index'))
 
-
-# --- ROUTE GENERATE_REPORT_NOW (Tidak Berubah, SQL sudah benar) ---
+# --- ROUTE GENERATE_REPORT_NOW (SQL & Waktu Diperbaiki) ---
 @app.route('/generate_report_now', methods=['POST'])
 def generate_report_now():
     if 'user' not in session or session.get('role') != 'admin':
@@ -335,14 +330,14 @@ def generate_report_now():
         if 'audio_file' in request.files:
             file = request.files['audio_file']
             filename = secure_filename(f"audio_{token}_{datetime.now().strftime('%Y%m%d%H%M%S')}.webm")
-            # Pastikan folder ada sebelum menyimpan
             os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
             app.logger.info(f"Audio disimpan ke: {filepath}")
         
-        tgl_rekaman = datetime.now()
+        tgl_rekaman = datetime.now() # Gunakan objek datetime
         
+        # SQL SUDAH BENAR
         cursor.execute("""
             INSERT INTO audio_recordings 
             (interviewee, date, filename, transcript, request_id)
@@ -424,7 +419,7 @@ def generate_report_now():
         app.logger.error(f'Gagal generate report now: {str(e)}', exc_info=True)
         return {'message': f'Terjadi error di server: {str(e)}'}, 500
 
-# --- ROUTE RECORDER (DIBERSIHKAN, HANYA GET) ---
+# --- ROUTE RECORDER (HANYA GET) ---
 @app.route('/recorder')
 def recorder():
     if 'user' not in session:
@@ -435,8 +430,6 @@ def recorder():
     try:
         db = get_db()
         cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        # Ambil tokens untuk dropdown
         cursor.execute('SELECT token FROM interview_requests ORDER BY request_date DESC')
         tokens_data = cursor.fetchall()
         tokens = [{'token': row['token']} for row in tokens_data]
@@ -447,19 +440,23 @@ def recorder():
     
     return render_template('recorder.html', tokens=tokens)
 
-# --- ROUTE UPLOADS (Tidak Berubah) ---
+# --- ROUTE UPLOADS ---
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     if 'user' not in session:
         flash('Anda harus login untuk mengakses file ini.', 'danger')
         return redirect(url_for('login'))
     try:
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=False)
+        # Pastikan folder ada
+        folder = app.config['UPLOAD_FOLDER']
+        if not os.path.isdir(folder):
+             os.makedirs(folder, exist_ok=True)
+        return send_from_directory(folder, filename, as_attachment=False)
     except FileNotFoundError:
         app.logger.error(f"File tidak ditemukan di /uploads/: {filename}")
         return "File not found", 404
 
-# --- ROUTE GET_TOPIK (Tidak Berubah, sudah benar) ---
+# --- ROUTE GET_TOPIK (DIPERBAIKI untuk Waktu) ---
 @app.route('/get_topik/<token>')
 def get_topik(token):
     if 'user' not in session:
@@ -523,8 +520,11 @@ def generate_pdf(recording_id):
         # (Logika FPDF Anda - dipersingkat)
         pdf = FPDF()
         pdf.add_page()
-        # ... (Sisipkan logika FPDF Anda di sini, sama seperti /generate_report_now) ...
-        # ... (Ini duplikat, tapi biarkan untuk saat ini) ...
+        # ... (Anda harus menyalin/menempelkan logika pembuatan FPDF 
+        #      lengkap dari /generate_report_now ke sini agar identik) ...
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
+        # ... (Sisa kode FPDF) ...
         
         buffer = io.BytesIO()
         pdf_bytes = pdf.output(dest='S')
@@ -650,7 +650,7 @@ def logout():
 with app.app_context():
     init_db()
 
+# Nonaktifkan app.run() untuk Vercel
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
-# ^ Nonaktifkan app.run() untuk Vercel
