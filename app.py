@@ -20,10 +20,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart   
 import tempfile                          
-import nltk
-import json
-from sklearn.feature_extraction.text import TfidfVectorizer
-from nltk.corpus import stopwords
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -113,13 +109,6 @@ def close_connection(exception):
 
 def init_db():
     try:
-        try:
-            nltk.data.find('corpora/stopwords')
-            print("NLTK stopwords already downloaded.")
-        except LookupError:
-            print("Downloading NLTK stopwords...")
-            nltk.download('stopwords')
-            print("NLTK stopwords downloaded.")
         # -------------------------
 
         db = get_db()
@@ -546,99 +535,6 @@ def transcribe_audio(audio_path):
     except Exception as e:
         app.logger.error(f"Transcription error: {str(e)}")
         return None
-
-@app.route('/dashboard')
-def dashboard():
-    """
-    Halaman baru untuk menampilkan Dasbor Analisis & Word Cloud.
-    """
-    if 'user' not in session:
-        flash('Please login to view this page', 'danger')
-        return redirect(url_for('login'))
-    
-    keywords_json = "[]" # Default
-    
-    try:
-        db = get_db()
-        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        # 1. Ambil semua transkrip dari database
-        cursor.execute("SELECT transcript FROM audio_recordings WHERE transcript IS NOT NULL AND transcript != ''")
-        transcripts_data = cursor.fetchall()
-        
-        if not transcripts_data:
-            flash('Belum ada data transkrip untuk dianalisis.', 'info')
-            return render_template('dashboard.html', keywords_json=keywords_json)
-
-        all_transcripts = [row['transcript'] for row in transcripts_data]
-
-        # 2. Siapkan Stop Words (Filter Kata) Bahasa Indonesia
-        # Kita tambahkan kata-kata kustom yang tidak relevan
-        custom_stop_words = ['bmkg', 'wawancara', 'narasumber', 'pewawancara', 
-                             'selamat', 'pagi', 'siang', 'sore', 'malam', 'terima', 'kasih']
-        stop_words = list(stopwords.words('indonesian')) + custom_stop_words
-
-        # 3. Proses NLP (TF-IDF) untuk ekstraksi kata kunci
-        # Kita ambil 75 kata kunci terpenting
-        vectorizer = TfidfVectorizer(stop_words=stop_words, max_features=75)
-        tfidf_matrix = vectorizer.fit_transform(all_transcripts)
-        
-        # Dapatkan nama kata (fitur)
-        words = vectorizer.get_feature_names_out()
-        
-        # Dapatkan total skor TF-IDF untuk setiap kata di semua dokumen
-        total_scores = tfidf_matrix.sum(axis=0).tolist()[0]
-        
-        # 4. Format data untuk Word Cloud
-        # Kita kalikan skor (desimal kecil) agar ukurannya terlihat
-        keyword_data = [{"word": word, "weight": score * 100} for word, score in zip(words, total_scores)]
-        
-        # Sortir berdasarkan bobot
-        sorted_keywords = sorted(keyword_data, key=lambda x: x['weight'], reverse=True)
-        
-        keywords_json = json.dumps(sorted_keywords)
-
-        return render_template('dashboard.html', keywords_json=keywords_json)
-        
-    except Exception as e:
-        flash(f'Error membuat dashboard: {str(e)}', 'danger')
-        app.logger.error(f'Dashboard error: {str(e)}', exc_info=True)
-        return render_template('dashboard.html', keywords_json=keywords_json)
-
-
-@app.route('/search_by_keyword')
-def search_by_keyword():
-    """
-    API untuk fitur klik di Word Cloud.
-    Mencari transkrip yang mengandung kata kunci (keyword).
-    """
-    if 'user' not in session:
-        return {'results': []}, 403
-
-    keyword = request.args.get('q')
-    if not keyword:
-        return {'results': []}, 400
-
-    results = []
-    try:
-        db = get_db()
-        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        # Query ILIKE (case-insensitive) untuk mencari transkrip
-        cursor.execute("""
-            SELECT ir.token, ar.interviewee, ir.interviewer_name, ar.transcript
-            FROM audio_recordings ar
-            JOIN interview_requests ir ON ar.request_id = ir.id
-            WHERE ar.transcript ILIKE %s
-            ORDER BY ar.date DESC
-        """, (f'%{keyword}%',)) # f'%{keyword}%' mencari kata di mana saja
-        
-        results = [dict(row) for row in cursor.fetchall()]
-        return {'results': results}
-
-    except Exception as e:
-        app.logger.error(f'Search by keyword error: {str(e)}', exc_info=True)
-        return {'results': [], 'error': str(e)}, 500
 
 @app.route('/generate_report_now', methods=['POST'])
 def generate_report_now():
@@ -1161,6 +1057,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
