@@ -221,8 +221,31 @@ def request_interview():
         
         request_date = datetime.now() # Gunakan objek datetime
 
+# Format string waktu agar lebih mudah dibaca (jika ada)
+        waktu_str = datetime_req_str
+        if datetime_req:
+             # Ubah dari "2025-11-14T15:00" menjadi "Jumat, 14 Nov 2025 15:00"
+             try:
+                 waktu_str = datetime_req.strftime('%A, %d %b %Y %H:%M')
+             except Exception:
+                 pass # Biarkan string aslinya jika format gagal
+
+        # Buat template pesan WhatsApp yang lengkap
+        message = f"""Permohonan Wawancara BMKG
+        Halo Admin BMKG 👋,
+        Berikut detail permohonan wawancara yang baru saja diajukan:
+        - Token: *{token}*
+        - Nama Pewawancara: *{interviewer_name}*
+        - Media: *{media_name}*
+        - Topik Wawancara: *{topic}*
+        - Tanggal & Waktu: *{waktu_str}*
+        - Metode: *{method.capitalize()}*
+        - Meeting Link (jika ada): {meeting_link if meeting_link else '-'}
+        Mohon tindak lanjut konfirmasi jadwal.
+        Terima kasih 🙏"""
+
+        # Encode pesan agar formatnya aman di URL WhatsApp
         from urllib.parse import quote
-        message = f"Permohonan Wawancara BMKG... Token: *{token}* ..." # Dipersingkat
         encoded_message = quote(message)
         whatsapp_link = f"https://wa.me/{app.config['WHATSAPP_ADMIN']}?text={encoded_message}"
 
@@ -699,3 +722,4 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
