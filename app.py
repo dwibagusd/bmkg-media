@@ -1,4 +1,5 @@
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g, send_from_directory
 from datetime import datetime
 import os
@@ -8,7 +9,6 @@ from reportlab.pdfgen import canvas
 import io
 import psycopg2
 import psycopg2.extras
-from werkzeug.security import generate_password_hash, check_password_hash
 from hashlib import sha256  
 import speech_recognition as sr
 from pydub import AudioSegment
@@ -18,8 +18,7 @@ import pandas as pd
 from io import BytesIO
 import smtplib
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart   
-import tempfile      
+from email.mime.multipart import MIMEMultipart     
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -1057,6 +1056,7 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
