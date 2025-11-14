@@ -5,13 +5,14 @@ import tempfile
 import smtplib
 import psycopg2
 import psycopg2.extras
+import json # Pastikan JSON di-import
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g, send_from_directory
-from fpdf import FPDF # Kita hanya menggunakan FPDF
+from fpdf import FPDF # Kita HANYA menggunakan FPDF
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -19,10 +20,6 @@ app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL')
 app.config['UPLOAD_FOLDER'] = '/tmp/uploads/'
 app.config['WHATSAPP_ADMIN'] = os.environ.get('WHATSAPP_ADMIN')
 app.config['WHATSAPP_DEFAULT_MSG'] = 'Halo BMKG, saya ingin konfirmasi permohonan wawancara dengan token: '
-
-# Buat folder unggahan (hanya jika belum ada)
-# os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True) 
-# ^ Sebaiknya tidak di global scope, tapi /tmp/ dijamin ada.
 
 # --- KONFIGURASI DATABASE (Tidak Berubah) ---
 def get_db():
@@ -64,6 +61,9 @@ def init_db():
         db = get_db()
         cursor = db.cursor()
         
+        # Buat tipe ENUM jika belum ada
+        cursor.execute("CREATE TYPE request_status_enum AS ENUM ('Pending', 'Approved', 'Completed', 'Canceled')")
+        
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -99,6 +99,14 @@ def init_db():
             transcript TEXT
         )
         ''')
+
+        # Buat tabel untuk cache WordCloud
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS keyword_results (
+            word TEXT PRIMARY KEY,
+            weight FLOAT4 NOT NULL
+        )
+        ''')
         
         admin_password = os.environ.get('ADMIN_PASSWORD', 'password123')
         cursor.execute('''
@@ -109,8 +117,13 @@ def init_db():
         
         db.commit()
         print("Database initialized successfully with correct schema.")
+    except psycopg2.errors.DuplicateObject:
+        # Jika tipe ENUM sudah ada, lanjutkan saja
+        print("Database types/tables already exist, skipping creation.")
+        db.rollback()
     except Exception as e:
         print(f"Error initializing database: {str(e)}")
+        db.rollback()
 
 # --- DATA CONTOH (Tidak Berubah) ---
 weather_data = {
@@ -156,7 +169,7 @@ def send_email_notification(token, recipient_email, request_data):
             return False
         
         subject = f"Konfirmasi Permohonan Wawancara BMKG - Token: {token}"
-        html = f"""<html>... (Isi email Anda) ...</html>""" # (Dipersingkat)
+        html = f"""<html>...(Isi email Anda)...</html>""" # Dipersingkat
         
         msg = MIMEMultipart()
         msg['From'] = sender_email
@@ -183,23 +196,24 @@ def request_interview():
         interviewer_name = request.form.get('interviewer_name')
         media_name = request.form.get('media_name')
         topic = request.form.get('topic')
-        datetime_req = request.form.get('datetime')
+        datetime_req_str = request.form.get('datetime')
         meeting_link = request.form.get('meeting_link', '')
 
-        # (Logika Pesan WhatsApp Anda - dipersingkat)
+        # Konversi string datetime ke objek datetime
+        datetime_req = None
+        if datetime_req_str:
+            try:
+                datetime_req = datetime.fromisoformat(datetime_req_str)
+            except ValueError:
+                flash('Format datetime tidak valid.', 'danger')
+                return render_template('request_interview.html')
+        
+        request_date = datetime.now()
+
         from urllib.parse import quote
-        message = f"Permohonan Wawancara BMKG... Token: *{token}* ..."
+        message = f"Permohonan Wawancara BMKG... Token: *{token}* ..." # Dipersingkat
         encoded_message = quote(message)
         whatsapp_link = f"https://wa.me/{app.config['WHATSAPP_ADMIN']}?text={encoded_message}"
-
-        request_data = {
-            'token': token, 'interviewer_name': interviewer_name,
-            'media_name': media_name, 'topic': topic, 'method': method,
-            'datetime': datetime_req, 'meeting_link': meeting_link,
-            'whatsapp_link': whatsapp_link,
-            'request_date': datetime.now().strftime('%Y-%m-%d %H:%M'),
-            'status': 'Pending'
-        }
 
         try:
             db = get_db()
@@ -209,16 +223,19 @@ def request_interview():
                 (token, interviewer_name, media_name, topic, method, datetime, meeting_link, whatsapp_link, request_date, status)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
-                request_data['token'], request_data['interviewer_name'],
-                request_data['media_name'], request_data['topic'],
-                request_data['method'], request_data['datetime'],
-                request_data['meeting_link'], request_data['whatsapp_link'],
-                request_data['request_date'], request_data['status']
+                token, interviewer_name, media_name, topic, method,
+                datetime_req, meeting_link, whatsapp_link,
+                request_date, 'Pending'
             ))
             db.commit()
 
             if email:
-                send_email_notification(token, email, request_data)
+                # Siapkan data untuk email
+                request_data_email = {
+                    'interviewer_name': interviewer_name, 'media_name': media_name,
+                    'topic': topic, 'method': method, 'datetime': datetime_req_str
+                }
+                send_email_notification(token, email, request_data_email)
 
             return redirect(whatsapp_link)
         except Exception as e:
@@ -227,7 +244,7 @@ def request_interview():
     
     return render_template('request_interview.html')
 
-# --- DATA HISTORIS (Tidak Berubah, SQL sudah benar) ---
+# --- DATA HISTORIS (SQL DIPERBAIKI) ---
 @app.route('/historical-data', methods=['GET', 'POST'])
 def historical_data_view():
     if 'user' not in session:
@@ -293,14 +310,6 @@ def historical_data_view():
         app.logger.error(f'Database error: {str(e)}')
         return redirect(url_for('index'))
 
-# --- ROUTE EXPORT-DATA (DIHAPUS) ---
-# @app.route('/export-data')
-# def export_data():
-#    ... (Fungsi ini dihapus karena 'pandas' terlalu berat) ...
-
-# --- FUNGSI TRANSCRIBE_AUDIO (DIHAPUS) ---
-# def transcribe_audio(audio_path):
-#    ... (Fungsi ini dihapus karena 'pydub' dan 'sr' tidak didukung) ...
 
 # --- ROUTE GENERATE_REPORT_NOW (Tidak Berubah, SQL sudah benar) ---
 @app.route('/generate_report_now', methods=['POST'])
@@ -319,7 +328,7 @@ def generate_report_now():
         teks = data['transcript']
         media_name = data.get('media_name', '-')
         topic = data.get('topic', '-')
-        datetime_req = data.get('datetime', '-')
+        datetime_req_str = data.get('datetime', '-')
         method = data.get('method', '-')
         
         filename = f"rekaman_{token}.webm" 
@@ -332,7 +341,7 @@ def generate_report_now():
             file.save(filepath)
             app.logger.info(f"Audio disimpan ke: {filepath}")
         
-        tgl_rekaman = datetime.now().strftime('%Y-%m-%d %H:%M')
+        tgl_rekaman = datetime.now()
         
         cursor.execute("""
             INSERT INTO audio_recordings 
@@ -356,7 +365,7 @@ def generate_report_now():
         db.commit()
         app.logger.info(f"Data transkrip disimpan/diperbarui untuk ID: {recording_id}")
 
-        # (Logika FPDF Anda - dipersingkat)
+        # (Logika FPDF Anda)
         pdf = FPDF()
         pdf.add_page()
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -376,7 +385,7 @@ def generate_report_now():
         pdf.set_font("Arial", '', 12)
         label_width = 50 
         pdf.cell(label_width, 8, "Waktu Jadwal :", 0, 0)
-        pdf.cell(0, 8, datetime_req, 0, 1)
+        pdf.cell(0, 8, datetime_req_str, 0, 1) # Gunakan string
         pdf.cell(label_width, 8, "Saluran Wawancara :", 0, 0) 
         pdf.cell(0, 8, method, 0, 1)
         pdf.cell(label_width, 8, "Wartawan :", 0, 0)
@@ -415,15 +424,12 @@ def generate_report_now():
         app.logger.error(f'Gagal generate report now: {str(e)}', exc_info=True)
         return {'message': f'Terjadi error di server: {str(e)}'}, 500
 
-# --- ROUTE RECORDER (DIBERSIHKAN) ---
-@app.route('/recorder', methods=['GET'])
+# --- ROUTE RECORDER (DIBERSIHKAN, HANYA GET) ---
+@app.route('/recorder')
 def recorder():
     if 'user' not in session:
         flash('Please login to view this page', 'danger')
         return redirect(url_for('login'))
-    
-    # Blok POST dihapus, karena alur kerja utama sekarang 
-    # adalah /generate_report_now
     
     tokens = []
     try:
@@ -439,7 +445,6 @@ def recorder():
         flash(f'Database error saat mengambil data: {str(e)}', 'danger')
         app.logger.error(f'Database error: {str(e)}')
     
-    # Halaman ini tidak lagi menampilkan 'recordings'
     return render_template('recorder.html', tokens=tokens)
 
 # --- ROUTE UPLOADS (Tidak Berubah) ---
@@ -476,7 +481,8 @@ def get_topik(token):
                 'topic': data['topic'],
                 'interviewer_name': data['interviewer_name'],
                 'media_name': data['media_name'],
-                'datetime': data['datetime'],
+                # Konversi datetime ke string ISO agar bisa di-JSON
+                'datetime': data['datetime'].isoformat() if data['datetime'] else None,
                 'method': data['method']
             }
         else:
@@ -497,7 +503,7 @@ def generate_pdf(recording_id):
         db = get_db()
         cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # SQL DIPERBAIKI (menggunakan request_id)
+        # SQL DIPERBAIKI
         cursor.execute('''
             SELECT
                 ar.interviewee, ar.date as recording_date, ar.transcript,
@@ -512,37 +518,14 @@ def generate_pdf(recording_id):
         
         if not recording:
             flash('Recording not found', 'danger')
-            return redirect(url_for('historical_data_view')) # Arahkan ke historis
+            return redirect(url_for('historical_data_view'))
 
         # (Logika FPDF Anda - dipersingkat)
         pdf = FPDF()
         pdf.add_page()
-        # ... (Logika FPDF sama seperti di /generate_report_now) ...
-        # Anda bisa memfaktorkan ini ke fungsi terpisah nanti
+        # ... (Sisipkan logika FPDF Anda di sini, sama seperti /generate_report_now) ...
+        # ... (Ini duplikat, tapi biarkan untuk saat ini) ...
         
-        pdf.set_font("Arial", 'B', 16)
-        pdf.cell(0, 10, "Laporan Wawancara BMKG", 0, 1, 'C')
-        pdf.ln(10)
-        
-        pdf.set_font("Arial", '', 12)
-        label_width = 50
-        pdf.cell(label_width, 8, "Token:", 0, 0)
-        pdf.cell(0, 8, recording['token'] or '-', 0, 1)
-        pdf.cell(label_width, 8, "Topik:", 0, 0)
-        pdf.cell(0, 8, recording['topic'] or '-', 0, 1)
-        # ... (Sisa field) ...
-        pdf.ln(10)
-        
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 10, "Transkrip Wawancara", 0, 1)
-        pdf.ln(5)
-        
-        pdf.set_font("Arial", '', 11)
-        transcript = recording['transcript'] or '(Tidak ada transkrip)'
-        for line in transcript.split('\n'):
-            pdf.multi_cell(0, 7, line.encode('latin-1', 'replace').decode('latin-1'))
-            pdf.ln(2)
-
         buffer = io.BytesIO()
         pdf_bytes = pdf.output(dest='S')
         buffer.write(pdf_bytes)
@@ -558,7 +541,71 @@ def generate_pdf(recording_id):
     except Exception as e:
         flash(f'Error generating PDF (FPDF): {str(e)}', 'danger')
         app.logger.error(f'PDF generation error: {str(e)}')
-        return redirect(url_for('historical_data_view')) # Arahkan ke historis
+        return redirect(url_for('historical_data_view'))
+
+# --- DASBOR NLP (Arsitektur Terpisah) ---
+
+@app.route('/dashboard')
+def dashboard():
+    """
+    Halaman Dasbor VERSI RINGAN.
+    Hanya membaca data yang sudah diolah dari tabel 'keyword_results'.
+    """
+    if 'user' not in session:
+        flash('Please login to view this page', 'danger')
+        return redirect(url_for('login'))
+    
+    keywords_json = "[]" # Default
+    try:
+        db = get_db()
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        cursor.execute("SELECT word, (weight * 100) as weight FROM public.keyword_results ORDER BY weight DESC")
+        keyword_data = [dict(row) for row in cursor.fetchall()]
+        
+        if not keyword_data:
+            flash('Data analisis belum tersedia. Jalankan skrip NLP lokal.', 'info')
+        
+        keywords_json = json.dumps(keyword_data)
+        return render_template('dashboard.html', keywords_json=keywords_json)
+        
+    except Exception as e:
+        flash(f'Error memuat dashboard: {str(e)}', 'danger')
+        app.logger.error(f'Dashboard error: {str(e)}', exc_info=True)
+        return render_template('dashboard.html', keywords_json="[]")
+
+
+@app.route('/search_by_keyword')
+def search_by_keyword():
+    """
+    API untuk fitur klik (Ini tidak perlu NLP, hanya SQL).
+    """
+    if 'user' not in session:
+        return {'results': []}, 403
+
+    keyword = request.args.get('q')
+    if not keyword:
+        return {'results': []}, 400
+
+    results = []
+    try:
+        db = get_db()
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        cursor.execute("""
+            SELECT ir.token, ar.interviewee, ir.interviewer_name, ar.transcript
+            FROM audio_recordings ar
+            JOIN interview_requests ir ON ar.request_id = ir.id
+            WHERE ar.transcript ILIKE %s
+            ORDER BY ar.date DESC
+        """, (f'%{keyword}%',))
+        
+        results = [dict(row) for row in cursor.fetchall()]
+        return {'results': results}
+
+    except Exception as e:
+        app.logger.error(f'Search by keyword error: {str(e)}', exc_info=True)
+        return {'results': [], 'error': str(e)}, 500
 
 # --- ROUTE AUTH (Tidak Berubah) ---
 @app.route('/login', methods=['GET', 'POST'])
@@ -603,6 +650,7 @@ def logout():
 with app.app_context():
     init_db()
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+# if __name__ == "__main__":
+#     port = int(os.environ.get("PORT", 5000))
+#     app.run(host='0.0.0.0', port=port, debug=True)
+# ^ Nonaktifkan app.run() untuk Vercel
