@@ -213,9 +213,10 @@ def request_interview():
         datetime_req = None
         if datetime_req_str:
             try:
+                # Pastikan format input adalah ISO (YYYY-MM-DDTHH:MM)
                 datetime_req = datetime.fromisoformat(datetime_req_str)
             except ValueError:
-                flash('Format datetime tidak valid.', 'danger')
+                flash('Format datetime tidak valid. Gunakan format YYYY-MM-DDTHH:MM.', 'danger')
                 return render_template('request_interview.html')
         
         request_date = datetime.now() # Gunakan objek datetime
@@ -245,6 +246,7 @@ def request_interview():
 
             return redirect(whatsapp_link)
         except Exception as e:
+            db.rollback()
             flash(f'Database error: {str(e)}', 'danger')
             app.logger.error(f'Database error: {str(e)}')
     
