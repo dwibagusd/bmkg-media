@@ -335,7 +335,7 @@ def historical_data_view():
         app.logger.error(f'Database error: {str(e)}')
         return redirect(url_for('index'))
 
-# --- ROUTE GENERATE_REPORT_NOW (SQL & Waktu Diperbaiki) ---
+# --- ROUTE GENERATE_REPORT_NOW ---
 @app.route('/generate_report_now', methods=['POST'])
 def generate_report_now():
     if 'user' not in session or session.get('role') != 'admin':
@@ -390,9 +390,9 @@ def generate_report_now():
         db.commit()
         app.logger.info(f"Data transkrip disimpan/diperbarui untuk ID: {recording_id}")
 
-        # (Logika FPDF Anda)
         pdf = FPDF()
         pdf.add_page()
+        pdf.add_font('Arial', '', 'Arial.ttf', uni=True)
         base_dir = os.path.dirname(os.path.abspath(__file__))
         header_path = os.path.join(base_dir, 'static', 'header.png')
 
@@ -429,12 +429,12 @@ def generate_report_now():
         
         pdf.set_font("Arial", '', 11)
         for line in teks.split('\n'):
-            pdf.multi_cell(0, 7, line.encode('latin-1', 'replace').decode('latin-1')) 
+            pdf.multi_cell(0, 7, line) 
             pdf.ln(2) 
 
         pdf_buffer = io.BytesIO()
-        pdf_bytes = pdf.output(dest='S')
-        pdf_buffer.write(pdf_bytes_str.encode('latin-1'))
+        pdf_bytes = pdf.output()
+        pdf_buffer.write(pdf_bytes)
         pdf_buffer.seek(0)
         
         return send_file(
@@ -722,6 +722,7 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 
