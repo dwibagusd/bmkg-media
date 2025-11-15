@@ -35,11 +35,38 @@
         padding: 1rem 0;
       }
 
-      /* .navbar-brand {
+      /* .navbar-brand { ... } (Dihapus sesuai permintaan Anda sebelumnya) */
+
+
+      /* ==================================================
+        MODIFIKASI NAVBAR (SESUAI PERCAKAPAN SEBELUMNYA)
+        ================================================== 
+      */
+      .nav-link {
         font-family: "Poppins", sans-serif;
-        font-weight: 700;
-        color: var(--bmkg-blue) !important;
-      } */
+        font-weight: 600; /* Dibuat lebih tebal */
+        text-transform: uppercase; /* Dibuat HURUF KAPITAL */
+        font-size: 0.9rem; /* Sedikit lebih kecil agar pas */
+        padding-left: 0.8rem !important;  /* Menambah jarak antar menu */
+        padding-right: 0.8rem !important; /* Menambah jarak antar menu */
+        color: #333; /* Warna teks menu (gelap) */
+      }
+      
+      /* Mengubah warna saat hover */
+      .navbar-nav .nav-link:hover {
+        color: var(--bmkg-blue); /* Warna biru saat di-hover */
+      }
+      
+      /* Menandai halaman yang sedang aktif */
+      .navbar-nav .nav-link.active {
+         color: var(--bmkg-blue);
+         font-weight: 700;
+      }
+      /* ==================================================
+        AKHIR DARI MODIFIKASI NAVBAR
+        ================================================== 
+      */
+
 
       .hero-section {
         background: linear-gradient(135deg, #f5f7fa 0%, #e4ecfb 100%);
@@ -190,7 +217,6 @@
         object-fit: fill; 
         display: block;   
       }
-      
     </style>
   </head>
   <body>
@@ -307,6 +333,7 @@
     {% block scripts %}{% endblock %}
   </body>
 </html>
+
 
 
 
