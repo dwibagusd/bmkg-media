@@ -405,7 +405,7 @@ def generate_report_now():
             
         header_path = os.path.join(base_dir, 'static', 'header.png')
         if os.path.exists(header_path):
-            pdf.image(header_path, w=190)
+            pdf.image(header_path, x=0, y=0 w=210)
             pdf.set_y(60) 
         else:
             app.logger.warn(f"Header image not found at {header_path}, skipping.")
@@ -570,7 +570,7 @@ def generate_pdf(recording_id):
         
         header_path = os.path.join(base_dir, 'static', 'header.png')
         if os.path.exists(header_path):
-            pdf.image(header_path, w=190)
+            pdf.image(header_path, x=0, y=0, w=210)
             pdf.set_y(60) 
         else:
             pdf.set_y(10)
@@ -737,6 +737,7 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 
