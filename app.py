@@ -392,10 +392,9 @@ def generate_report_now():
 
         pdf = FPDF()
         pdf.add_page()
-        pdf.add_font('Arial', '', 'Arial.ttf', uni=True)
         base_dir = os.path.dirname(os.path.abspath(__file__))
         
-        font_path = os.path.join(base_dir, 'static', 'arial.ttf')
+        font_path = os.path.join(base_dir, 'static', 'Arial.ttf')
         if not os.path.exists(font_path):
             app.logger.error(f"File font tidak ditemukan di: {font_path}")
         try:
@@ -558,10 +557,9 @@ def generate_pdf(recording_id):
 
         pdf = FPDF()
         pdf.add_page()
-        pdf.add_font('Arial', '', 'Arial.ttf', uni=True)
         base_dir = os.path.dirname(os.path.abspath(__file__))
 
-        font_path = os.path.join(base_dir, 'static', 'arial.ttf')
+        font_path = os.path.join(base_dir, 'static', 'Arial.ttf')
         if not os.path.exists(font_path):
             app.logger.error(f"File font tidak ditemukan di: {font_path}")
         try:
@@ -739,6 +737,7 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 
