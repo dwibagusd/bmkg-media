@@ -12,7 +12,7 @@ from email.mime.multipart import MIMEMultipart
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g, send_from_directory
-from fpdf import FPDF # Kita HANYA menggunakan FPDF
+from fpdf import FPDF 
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -405,7 +405,7 @@ def generate_report_now():
             
         header_path = os.path.join(base_dir, 'static', 'header.png')
         if os.path.exists(header_path):
-            pdf.image(header_path, x=10, y=10, w=190)
+            pdf.image(header_path, w=190)
             pdf.set_y(60) 
         else:
             app.logger.warn(f"Header image not found at {header_path}, skipping.")
@@ -570,7 +570,7 @@ def generate_pdf(recording_id):
         
         header_path = os.path.join(base_dir, 'static', 'header.png')
         if os.path.exists(header_path):
-            pdf.image(header_path, x=10, y=10, w=190)
+            pdf.image(header_path, w=190)
             pdf.set_y(60) 
         else:
             pdf.set_y(10)
@@ -737,6 +737,7 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 
