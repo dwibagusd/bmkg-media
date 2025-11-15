@@ -174,11 +174,24 @@
       .recording-card {
         border-left: 4px solid var(--bmkg-blue);
       }
+
+      .header-banner-container {
+        /* Menghapus padding/margin yang mungkin ada */
+        padding: 0;
+        margin: 0;
+        line-height: 1; /* Mencegah spasi ekstra di bawah gambar */
+      }
+      .header-banner-container img {
+        width: 100%; /* Membuat gambar responsif */
+      }
+      
     </style>
   </head>
   <body>
     <!-- Navigation -->
-
+    <div class="header-banner-container">
+      <img src="{{ url_for('static', filename='headerbmkg.jpg') }}" alt="Header BMKG Juanda">
+    </div>
     <nav class="navbar navbar-expand-lg sticky-top">
       <div class="container">
         <a class="navbar-brand" href="/">BMKG Media Center</a>
@@ -284,6 +297,7 @@
     {% block scripts %}{% endblock %}
   </body>
 </html>
+
 
 
 
