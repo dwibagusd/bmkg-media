@@ -550,7 +550,7 @@ def generate_pdf(recording_id):
         # (Logika FPDF Anda - salin dari /generate_report_now)
         pdf = FPDF()
         pdf.add_page()
-        
+        pdf.add_font('Arial', '', 'Arial.ttf', uni=True)
         base_dir = os.path.dirname(os.path.abspath(__file__))
         header_path = os.path.join(base_dir, 'static', 'header.png')
 
@@ -591,12 +591,12 @@ def generate_pdf(recording_id):
         pdf.set_font("Arial", '', 11)
         transcript = recording['transcript'] or '(Tidak ada transkrip)'
         for line in transcript.split('\n'):
-            pdf.multi_cell(0, 7, line.encode('latin-1', 'replace').decode('latin-1'))
+            pdf.multi_cell(0, 7, line)
             pdf.ln(2)
 
         buffer = io.BytesIO()
-        pdf_bytes = pdf.output(dest='S')
-        buffer.write(pdf_bytes_str.encode('latin-1'))
+        pdf_bytes = pdf.output()
+        buffer.write(pdf_bytes)
         buffer.seek(0)
         
         return send_file(
@@ -722,6 +722,7 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 
