@@ -206,17 +206,17 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
-            <li class="nav-item"><a class="nav-link" href="/">Beranda</a></li>
-            <li class="nav-item"><a class="nav-link" href="/request-interview">Permohonan Wawancara</a></li>
+            <li class="nav-item"><a class="nav-link" href="/">BERANDA</a></li>
+            <li class="nav-item"><a class="nav-link" href="/request-interview">PERMOHONAN WAWANCARA</a></li>
             {% if 'user' in session %}
-            <li class="nav-item"><a class="nav-link" href="/historical-data">Data Historis</a></li>
-            <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="/historical-data">DATA HISTORIS</a></li>
+            <li class="nav-item"><a class="nav-link" href="/dashboard">DASHBOARD</a></li>
             {% if session['role'] == 'admin' %}
-            <li class="nav-item"><a class="nav-link" href="/recorder">Recorder</a></li>
+            <li class="nav-item"><a class="nav-link" href="/recorder">RECORDER</a></li>
             {% endif %}
-            <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+            <li class="nav-item"><a class="nav-link" href="/logout">LOGOUT</a></li>
             {% else %}
-            <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+            <li class="nav-item"><a class="nav-link" href="/login">LOGIN</a></li>
             {% endif %}
           </ul>
         </div>
@@ -303,6 +303,7 @@
     {% block scripts %}{% endblock %}
   </body>
 </html>
+
 
 
 
