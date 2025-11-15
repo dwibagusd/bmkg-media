@@ -394,8 +394,17 @@ def generate_report_now():
         pdf.add_page()
         pdf.add_font('Arial', '', 'Arial.ttf', uni=True)
         base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        font_path = os.path.join(base_dir, 'static', 'arial.ttf')
+        if not os.path.exists(font_path):
+            app.logger.error(f"File font tidak ditemukan di: {font_path}")
+        try:
+            pdf.add_font('Arial', '', font_path, uni=True)
+        except Exception as e:
+            app.logger.error(f"Gagal memuat font: {e}")
+            pdf.set_font("Arial", 'B', 16)
+            
         header_path = os.path.join(base_dir, 'static', 'header.png')
-
         if os.path.exists(header_path):
             pdf.image(header_path, x=10, y=10, w=190)
             pdf.set_y(60) 
@@ -547,13 +556,21 @@ def generate_pdf(recording_id):
             flash('Recording not found', 'danger')
             return redirect(url_for('historical_data_view'))
 
-        # (Logika FPDF Anda - salin dari /generate_report_now)
         pdf = FPDF()
         pdf.add_page()
         pdf.add_font('Arial', '', 'Arial.ttf', uni=True)
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        header_path = os.path.join(base_dir, 'static', 'header.png')
 
+        font_path = os.path.join(base_dir, 'static', 'arial.ttf')
+        if not os.path.exists(font_path):
+            app.logger.error(f"File font tidak ditemukan di: {font_path}")
+        try:
+            pdf.add_font('Arial', '', font_path, uni=True)
+        except Exception as e:
+            app.logger.error(f"Gagal memuat font: {e}")
+            pdf.set_font("Arial", 'B', 16)
+        
+        header_path = os.path.join(base_dir, 'static', 'header.png')
         if os.path.exists(header_path):
             pdf.image(header_path, x=10, y=10, w=190)
             pdf.set_y(60) 
@@ -722,6 +739,7 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 
