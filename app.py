@@ -292,7 +292,7 @@ def historical_data_view():
         date_to = request.args.get('date_to', '')
         
         base_query = '''
-            SELECT ir.*, ar.filename as has_recording, ar.id as recording_id
+            SELECT ir.*, ar.filename as has_recording, ar.id as recording_id, ar.summary
             FROM interview_requests ir
             LEFT JOIN audio_recordings ar ON ir.id = ar.request_id
         '''
@@ -632,30 +632,40 @@ def generate_pdf(recording_id):
 def dashboard():
     """
     Halaman Dasbor VERSI RINGAN.
-    Hanya membaca data yang sudah diolah dari tabel 'keyword_results'.
+    Membaca data Word Cloud DAN NER yang sudah diolah.
     """
     if 'user' not in session:
         flash('Please login to view this page', 'danger')
         return redirect(url_for('login'))
     
-    keywords_json = "[]" # Default
+    keywords_json = "[]"
+    ner_json = "[]" # <-- BARU
+    
     try:
         db = get_db()
         cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
+        # 1. Ambil data Word Cloud
         cursor.execute("SELECT word, (weight * 100) as weight FROM public.keyword_results ORDER BY weight DESC")
         keyword_data = [dict(row) for row in cursor.fetchall()]
+        keywords_json = json.dumps(keyword_data)
         
-        if not keyword_data:
+        # 2. Ambil data NER (BARU)
+        cursor.execute("SELECT text, label, count FROM public.top_ner_entities ORDER BY count DESC")
+        ner_data = [dict(row) for row in cursor.fetchall()]
+        ner_json = json.dumps(ner_data)
+        
+        if not keyword_data and not ner_data:
             flash('Data analisis belum tersedia. Jalankan skrip NLP lokal.', 'info')
         
-        keywords_json = json.dumps(keyword_data)
-        return render_template('dashboard.html', keywords_json=keywords_json)
+        return render_template('dashboard.html', 
+                               keywords_json=keywords_json, 
+                               ner_json=ner_json) # <-- Kirim data NER
         
     except Exception as e:
         flash(f'Error memuat dashboard: {str(e)}', 'danger')
         app.logger.error(f'Dashboard error: {str(e)}', exc_info=True)
-        return render_template('dashboard.html', keywords_json="[]")
+        return render_template('dashboard.html', keywords_json="[]", ner_json="[]")
 
 
 @app.route('/search_by_keyword')
@@ -737,6 +747,7 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 
