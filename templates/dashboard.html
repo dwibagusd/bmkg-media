@@ -3,36 +3,99 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+  // --- Data dari Python ---
   const keywords = {{ keywords_json | safe }};
-  
-  if (keywords.length === 0) {
-    return;
+  const ner_data = {{ ner_json | safe }};
+
+  // --- 1. Inisialisasi Word Cloud ---
+  if (keywords.length > 0) {
+    const wordList = keywords.map(item => [item.word, item.weight]);
+    const canvas = document.getElementById('wordCloudCanvas');
+    WordCloud(canvas, {
+      list: wordList,
+      weightFactor: 3.5,
+      minSize: 12,
+      fontFamily: '"Poppins", sans-serif',
+      color: function (word, weight) {
+        const colors = ['#0052a3', '#0066cc', '#3498db', '#555', '#333', '#2c3e50'];
+        return colors[Math.floor(Math.random() * colors.length)];
+      },
+      backgroundColor: '#ffffff',
+      gridSize: 10,
+      minRotation: 0,
+      maxRotation: 0,
+      click: function(item) {
+        const word = item[0];
+        searchByWord(word); // Fungsi pencarian
+      }
+    });
   }
 
-  const wordList = keywords.map(item => [item.word, item.weight]);
-  
-  const canvas = document.getElementById('wordCloudCanvas');
+  // --- 2. Inisialisasi Bar Chart NER (BARU) ---
+  if (ner_data.length > 0) {
+    const ctx = document.getElementById('nerChartCanvas').getContext('2d');
+    
+    // Siapkan data untuk Chart.js
+    const labels = ner_data.map(item => item.text);
+    const counts = ner_data.map(item => item.count);
+    
+    // Tentukan warna berdasarkan label (LOKASI atau ORGANISASI)
+    const colors = ner_data.map(item => {
+        return (item.label === 'ORG') ? 'rgba(231, 76, 60, 0.7)' : 'rgba(0, 102, 204, 0.7)';
+    });
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Entitas (Lokasi/Organisasi) Teratas',
+          data: counts,
+          backgroundColor: colors,
+          borderColor: 'rgba(255, 255, 255, 0)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y', // Membuatnya jadi Bar Chart horizontal
+        responsive: true,
+        plugins: {
+          legend: {
+            display: false // Sembunyikan legenda
+          },
+          title: {
+            display: true,
+            text: 'Entitas yang Paling Sering Disebutkan'
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  // --- 3. Fungsi Klik Word Cloud ---
   const searchResults = document.getElementById('searchResults');
   const resultsHeader = document.getElementById('resultsHeader');
-
-  // --- FUNGSI UNTUK FITUR KLIK (DENGAN SCROLL) ---
+  
   const searchByWord = async (word) => {
     resultsHeader.innerHTML = `Mencari hasil untuk "<strong>${word}</strong>"...`;
-    searchResults.innerHTML = ''; // Kosongkan hasil lama
-
-    // --- PERBAIKAN 2: AUTO-SCROLL ---
-    // Pindahkan 'scrollIntoView' ke sini agar langsung scroll
+    searchResults.innerHTML = ''; 
     document.getElementById('resultsHeader').scrollIntoView({
-      behavior: 'smooth', // Animasi scroll
-      block: 'start'      // Scroll ke bagian atas elemen
+      behavior: 'smooth',
+      block: 'start'
     });
 
     try {
       const response = await fetch(`/search_by_keyword?q=${word}`);
       const data = await response.json();
-
       if (data.results && data.results.length > 0) {
         let html = '';
         data.results.forEach(item => {
@@ -44,12 +107,7 @@ document.addEventListener("DOMContentLoaded", function () {
           html += `
             <div class="result-card">
               <h6>Token: ${item.token}</h6>
-              <p class="text-muted mb-1">
-                Pewawancara: ${item.interviewer_name} | Narasumber: ${item.interviewee}
-              </p>
-              <blockquote class="result-quote">
-                ...${highlightedTranscript}...
-              </blockquote>
+              <blockquote class="result-quote">...${highlightedTranscript}...</blockquote>
             </div>
           `;
         });
@@ -62,35 +120,6 @@ document.addEventListener("DOMContentLoaded", function () {
       searchResults.innerHTML = '<p class="text-danger">Gagal memuat hasil.</p>';
     }
   };
-
-  // --- PERBAIKAN 1: INISIALISASI WORD CLOUD MODERN ---
-  WordCloud(canvas, {
-    list: wordList,
-    
-    // --- Pengaturan Tampilan ---
-    weightFactor: 3.5, // Buat kata-kata lebih besar
-    minSize: 12,       // Ukuran font minimum
-    fontFamily: '"Poppins", sans-serif',
-    
-    // Palet warna kustom (lebih modern)
-    color: function (word, weight) {
-      const colors = ['#0052a3', '#0066cc', '#3498db', '#555', '#333', '#2c3e50'];
-      return colors[Math.floor(Math.random() * colors.length)];
-    },
-    
-    backgroundColor: '#ffffff', // Latar belakang putih
-    gridSize: 10,
-    
-    // Hapus rotasi acak agar terlihat rapi
-    minRotation: 0,
-    maxRotation: 0,
-    
-    // --- Pengaturan Fungsionalitas ---
-    click: function(item) {
-      const word = item[0];
-      searchByWord(word); // Panggil fungsi pencarian & scroll
-    }
-  });
 });
 </script>
 {% endblock %}
@@ -111,15 +140,12 @@ document.addEventListener("DOMContentLoaded", function () {
     margin-bottom: 0.5rem;
     color: #1f2937;
   }
-  
-  /* Hapus border kaku dan biarkan kata-kata "mengambang" */
   #wordCloudCanvas {
     width: 100%;
-    height: 400px; /* Anda bisa sesuaikan ini */
+    height: 400px;
     margin-bottom: 2rem;
-    cursor: pointer; /* Tunjukkan bahwa ini bisa diklik */
+    cursor: pointer;
   }
-  
   .result-card {
     border: 1px solid #e5e7eb;
     border-radius: 12px;
@@ -133,18 +159,38 @@ document.addEventListener("DOMContentLoaded", function () {
     border-left: 4px solid #007bff;
     margin-top: 0.5rem;
   }
+  .chart-container {
+      border: 1px solid #e5e7eb;
+      padding: 1rem;
+      border-radius: 8px;
+  }
 </style>
 
 <div class="dashboard-container">
-  <h1>Dasbor Analisis Topik</h1>
-  <p class="text-muted mb-4">Kata kunci paling penting dari semua transkrip. Klik sebuah kata untuk melihat wawancara terkait.</p>
-
-  <canvas id="wordCloudCanvas"></canvas>
+  <h1>Dasbor Analisis NLP</h1>
+  <p class="text-muted mb-4">Analisis otomatis dari semua transkrip wawancara.</p>
+  
+  <div class="row g-4">
+    
+    <div class="col-lg-7">
+      <h3 class="h5">Topik & Kata Kunci Teratas (TF-IDF)</h3>
+      <div class="chart-container">
+          <canvas id="wordCloudCanvas"></canvas>
+      </div>
+    </div>
+    
+    <div class="col-lg-5">
+      <h3 class="h5">Lokasi & Organisasi Teratas (NER)</h3>
+      <div class="chart-container">
+          <canvas id="nerChartCanvas"></canvas>
+      </div>
+    </div>
+  </div>
 
   <div class="search-results-container">
     <h3 id="resultsHeader" class="mt-5 mb-3">Hasil Pencarian</h3>
     <div id="searchResults">
-      <p class="text-muted">Klik sebuah kata di awan di atas untuk melihat hasilnya di sini.</p>
+      <p class="text-muted">Klik sebuah kata di Word Cloud untuk melihat hasilnya di sini.</p>
     </div>
   </div>
 </div>
