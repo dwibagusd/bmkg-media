@@ -297,4 +297,23 @@ document.addEventListener("DOMContentLoaded", function () {
   <div id="nerChartWrapper" class="analysis-content">
     <h3 class="h5">Lokasi & Organisasi Teratas (NER)</h3>
     <div class="chart-container mb-4">
-        <canvas id="nerChartCanvas
+        <canvas id="nerChartCanvas"></canvas>
+    </div>
+  </div>
+
+  <div id="mediaChartWrapper" class="analysis-content">
+    <h3 class="h5">Media Paling Aktif</h3>
+    <div class="chart-container">
+        <canvas id="mediaChartCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Hasil Pencarian (dari klik Word Cloud) -->
+  <div id="searchResultsWrapper" class="analysis-content">
+    <h3 id="resultsHeader" class="mt-5 mb-3">Hasil Pencarian</h3>
+    <div id="searchResults">
+      <p class="text-muted">Klik sebuah kata di Word Cloud untuk melihat hasilnya di sini.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
