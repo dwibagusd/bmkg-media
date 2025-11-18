@@ -4,7 +4,7 @@
 {% block scripts %}
 <!-- Impor WordCloud2.js -->
 <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
-<!-- Impor Chart.js (BARU) -->
+<!-- Impor Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
@@ -12,7 +12,59 @@ document.addEventListener("DOMContentLoaded", function () {
   // --- Data dari Python ---
   const keywords = {{ keywords_json | safe }};
   const ner_data = {{ ner_json | safe }};
-  const media_data = {{ media_json | safe }}; // <-- DATA BARU
+  const media_data = {{ media_json | safe }};
+
+  // --- Ambil Referensi Elemen ---
+  const dropdownButton = document.getElementById('analysisDropdownButton');
+  
+  // Wrapper (pembungkus) untuk setiap bagian analisis
+  const wordCloudWrapper = document.getElementById('wordCloudWrapper');
+  const nerChartWrapper = document.getElementById('nerChartWrapper');
+  const mediaChartWrapper = document.getElementById('mediaChartWrapper');
+  const searchResultsWrapper = document.getElementById('searchResultsWrapper');
+  
+  // Tombol di dalam dropdown
+  const btnWordCloud = document.getElementById('showWordCloud');
+  const btnNer = document.getElementById('showNer');
+  const btnMedia = document.getElementById('showMedia');
+
+  const allWrappers = [wordCloudWrapper, nerChartWrapper, mediaChartWrapper, searchResultsWrapper];
+
+  // --- Fungsi untuk Menampilkan/Menyembunyikan Analisis ---
+  function showAnalysis(analysisType, buttonText) {
+    // 1. Sembunyikan semua wrapper
+    allWrappers.forEach(wrapper => {
+        wrapper.style.display = 'none';
+    });
+
+    // 2. Tampilkan wrapper yang dipilih
+    if (analysisType === 'wordCloud') {
+      wordCloudWrapper.style.display = 'block';
+      searchResultsWrapper.style.display = 'block'; // Tampilkan juga hasil pencarian
+    } else if (analysisType === 'ner') {
+      nerChartWrapper.style.display = 'block';
+    } else if (analysisType === 'media') {
+      mediaChartWrapper.style.display = 'block';
+    }
+    
+    // 3. Ubah teks tombol dropdown
+    dropdownButton.textContent = buttonText;
+  }
+
+  // --- Tambahkan Event Listener ke Tombol Dropdown ---
+  btnWordCloud.addEventListener('click', (e) => {
+    e.preventDefault();
+    showAnalysis('wordCloud', 'Analisis: Topik & Kata Kunci');
+  });
+  btnNer.addEventListener('click', (e) => {
+    e.preventDefault();
+    showAnalysis('ner', 'Analisis: Lokasi & Organisasi');
+  });
+  btnMedia.addEventListener('click', (e) => {
+    e.preventDefault();
+    showAnalysis('media', 'Analisis: Media Paling Aktif');
+  });
+
 
   // --- 1. Inisialisasi Word Cloud ---
   if (keywords.length > 0) {
@@ -33,12 +85,12 @@ document.addEventListener("DOMContentLoaded", function () {
       maxRotation: 0,
       click: function(item) {
         const word = item[0];
-        searchByWord(word); // Fungsi pencarian
+        searchByWord(word); // Panggil fungsi pencarian
       }
     });
   }
 
-  // --- 2. Inisialisasi Bar Chart NER (Tidak berubah) ---
+  // --- 2. Inisialisasi Bar Chart NER ---
   if (ner_data.length > 0) {
     const ctx = document.getElementById('nerChartCanvas').getContext('2d');
     const labels = ner_data.map(item => item.text);
@@ -68,25 +120,15 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // --- 3. Inisialisasi Doughnut Chart Media (BARU) ---
+  // --- 3. Inisialisasi Doughnut Chart Media ---
   if (media_data.length > 0) {
     const ctxMedia = document.getElementById('mediaChartCanvas').getContext('2d');
-    
-    // Siapkan data
     const labels = media_data.map(item => item.media_name);
     const counts = media_data.map(item => item.count);
-    
-    // Palet warna modern
-    const backgroundColors = [
-      '#0066cc', // BMKG Blue
-      '#2c3e50', // Dark Blue
-      '#3498db', // Light Blue
-      '#95a5a6', // Gray
-      '#7f8c8d'  // Dark Gray
-    ];
+    const backgroundColors = ['#0066cc', '#2c3e50', '#3498db', '#95a5a6', '#7f8c8d'];
 
     new Chart(ctxMedia, {
-      type: 'doughnut', // Tipe Doughnut
+      type: 'doughnut',
       data: {
         labels: labels,
         datasets: [{
@@ -99,28 +141,22 @@ document.addEventListener("DOMContentLoaded", function () {
       options: {
         responsive: true,
         plugins: {
-          legend: {
-            position: 'top', // Pindahkan legenda ke atas
-          },
-          title: {
-            display: true,
-            text: 'Top 5 Media Paling Aktif'
-          }
+          legend: { position: 'top' },
+          title: { display: true, text: 'Top 5 Media Paling Aktif' }
         }
       }
     });
   }
-  // --- Akhir Blok Baru ---
 
-
-  // --- 4. Fungsi Klik Word Cloud (Tidak berubah) ---
+  // --- 4. Fungsi Klik Word Cloud (Dengan Auto-Scroll) ---
   const searchResults = document.getElementById('searchResults');
   const resultsHeader = document.getElementById('resultsHeader');
   
   const searchByWord = async (word) => {
-    // ... (Fungsi ini tidak berubah) ...
     resultsHeader.innerHTML = `Mencari hasil untuk "<strong>${word}</strong>"...`;
     searchResults.innerHTML = ''; 
+    
+    // --- PERBAIKAN AUTO-SCROLL ---
     document.getElementById('resultsHeader').scrollIntoView({
       behavior: 'smooth',
       block: 'start'
@@ -197,51 +233,68 @@ document.addEventListener("DOMContentLoaded", function () {
       padding: 1rem;
       border-radius: 8px;
   }
-  /* (Opsional) Beri tinggi tetap agar chart tidak terlalu besar */
   #mediaChartCanvas {
       max-height: 300px;
   }
+  
+  /* --- STYLE BARU UNTUK DROPDOWN --- */
+  .analysis-content {
+      display: none; /* Sembunyikan semua chart by default */
+  }
+
+  .analysis-dropdown-btn {
+      background-color: #f8f9fa; /* Warna agar tidak putih polos */
+      border: 1px solid #e0e0e0;
+      width: 100%; /* Lebar penuh */
+      text-align: left;
+      font-weight: 500;
+  }
+
+  .analysis-dropdown-btn:hover {
+      background-color: #e9ecef; /* Warna hover */
+  }
+  
+  .analysis-dropdown-btn::after {
+      /* Pindahkan panah dropdown ke kanan */
+      margin-left: auto;
+      float: right;
+      margin-top: 10px;
+  }
+  
+  .dropdown-menu {
+      width: 100%; /* Buat menu selebar tombolnya */
+  }
+
 </style>
 
 <div class="dashboard-container">
   <h1>Dasbor Analisis NLP</h1>
   <p class="text-muted mb-4">Analisis otomatis dari semua transkrip wawancara.</p>
   
-  <!-- Grid untuk menata layout -->
-  <div class="row g-4">
-    
-    <!-- Kolom Kiri: Word Cloud -->
-    <div class="col-lg-7">
-      <h3 class="h5">Topik & Kata Kunci Teratas (TF-IDF)</h3>
-      <div class="chart-container">
-          <canvas id="wordCloudCanvas"></canvas>
-      </div>
-    </div>
-    
-    <!-- Kolom Kanan: NER Chart & Media Chart -->
-    <div class="col-lg-5">
-      
-      <!-- Chart 1: NER -->
-      <h3 class="h5">Lokasi & Organisasi Teratas (NER)</h3>
-      <div class="chart-container mb-4"> <!-- Tambah margin bawah -->
-          <canvas id="nerChartCanvas"></canvas>
-      </div>
-
-      <!-- Chart 2: Media (BARU) -->
-      <h3 class="h5">Media Paling Aktif</h3>
-      <div class="chart-container">
-          <canvas id="mediaChartCanvas"></canvas>
-      </div>
-      
-    </div>
+  <!-- === PERUBAHAN 1: DROPDOWN SELEKTOR === -->
+  <div class="dropdown mb-4">
+    <button class="btn btn-light dropdown-toggle analysis-dropdown-btn" type="button" id="analysisDropdownButton" data-bs-toggle="dropdown" aria-expanded="false">
+      Pilih Analisis
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="analysisDropdownButton">
+      <li><a class="dropdown-item" href="#" id="showWordCloud">Topik & Kata Kunci (TF-IDF)</a></li>
+      <li><a class="dropdown-item" href="#" id="showNer">Lokasi & Organisasi (NER)</a></li>
+      <li><a class="dropdown-item" href="#" id="showMedia">Media Paling Aktif</a></li>
+    </ul>
   </div>
 
-  <!-- Hasil Pencarian (dari klik Word Cloud) -->
-  <div class="search-results-container">
-    <h3 id="resultsHeader" class="mt-5 mb-3">Hasil Pencarian</h3>
-    <div id="searchResults">
-      <p class="text-muted">Klik sebuah kata di Word Cloud untuk melihat hasilnya di sini.</p>
+  <!-- === PERUBAHAN 2: WRAPPER UNTUK SETIAP CHART === -->
+
+  <!-- Kolom Kiri: Word Cloud -->
+  <div id="wordCloudWrapper" class="analysis-content">
+    <h3 class="h5">Topik & Kata Kunci Teratas (TF-IDF)</h3>
+    <div class="chart-container">
+        <canvas id="wordCloudCanvas"></canvas>
     </div>
   </div>
-</div>
-{% endblock %}
+  
+  <!-- Kolom Kanan: NER Chart & Media Chart -->
+  <div id="nerChartWrapper" class="analysis-content">
+    <h3 class="h5">Lokasi & Organisasi Teratas (NER)</h3>
+    <div class="chart-container mb-4">
+        <canvas id="nerChartCanvas
