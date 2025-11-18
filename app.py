@@ -632,40 +632,53 @@ def generate_pdf(recording_id):
 def dashboard():
     """
     Halaman Dasbor VERSI RINGAN.
-    Membaca data Word Cloud DAN NER yang sudah diolah.
+    Membaca data Word Cloud, NER, DAN data Media.
     """
     if 'user' not in session:
         flash('Please login to view this page', 'danger')
         return redirect(url_for('login'))
     
     keywords_json = "[]"
-    ner_json = "[]" # <-- BARU
+    ner_json = "[]"
+    media_json = "[]" # <-- TAMBAHKAN INI
     
     try:
         db = get_db()
         cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # 1. Ambil data Word Cloud
+        # 1. Ambil data Word Cloud (tidak berubah)
         cursor.execute("SELECT word, (weight * 100) as weight FROM public.keyword_results ORDER BY weight DESC")
         keyword_data = [dict(row) for row in cursor.fetchall()]
         keywords_json = json.dumps(keyword_data)
         
-        # 2. Ambil data NER (BARU)
+        # 2. Ambil data NER (tidak berubah)
         cursor.execute("SELECT text, label, count FROM public.top_ner_entities ORDER BY count DESC")
         ner_data = [dict(row) for row in cursor.fetchall()]
         ner_json = json.dumps(ner_data)
+
+        # 3. Ambil data Media Paling Aktif (BARU)
+        cursor.execute("""
+            SELECT media_name, COUNT(*) as count 
+            FROM public.interview_requests 
+            GROUP BY media_name 
+            ORDER BY count DESC 
+            LIMIT 5
+        """) # Ambil 5 media teratas
+        media_data = [dict(row) for row in cursor.fetchall()]
+        media_json = json.dumps(media_data) # <-- TAMBAHKAN INI
         
-        if not keyword_data and not ner_data:
+        if not keyword_data and not ner_data and not media_data:
             flash('Data analisis belum tersedia. Jalankan skrip NLP lokal.', 'info')
         
         return render_template('dashboard.html', 
                                keywords_json=keywords_json, 
-                               ner_json=ner_json) # <-- Kirim data NER
+                               ner_json=ner_json,
+                               media_json=media_json) # <-- Kirim data Media
         
     except Exception as e:
         flash(f'Error memuat dashboard: {str(e)}', 'danger')
         app.logger.error(f'Dashboard error: {str(e)}', exc_info=True)
-        return render_template('dashboard.html', keywords_json="[]", ner_json="[]")
+        return render_template('dashboard.html', keywords_json="[]", ner_json="[]", media_json="[]")
 
 
 @app.route('/search_by_keyword')
@@ -747,6 +760,7 @@ with app.app_context():
 # if __name__ == "__main__":
 #     port = int(os.environ.get("PORT", 5000))
 #     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 
