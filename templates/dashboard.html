@@ -2,7 +2,9 @@
 {% block title %}Dasbor Analisis{% endblock %}
 
 {% block scripts %}
+<!-- Impor WordCloud2.js -->
 <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+<!-- Impor Chart.js (BARU) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
@@ -10,6 +12,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // --- Data dari Python ---
   const keywords = {{ keywords_json | safe }};
   const ner_data = {{ ner_json | safe }};
+  const media_data = {{ media_json | safe }}; // <-- DATA BARU
 
   // --- 1. Inisialisasi Word Cloud ---
   if (keywords.length > 0) {
@@ -35,15 +38,11 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // --- 2. Inisialisasi Bar Chart NER (BARU) ---
+  // --- 2. Inisialisasi Bar Chart NER (Tidak berubah) ---
   if (ner_data.length > 0) {
     const ctx = document.getElementById('nerChartCanvas').getContext('2d');
-    
-    // Siapkan data untuk Chart.js
     const labels = ner_data.map(item => item.text);
     const counts = ner_data.map(item => item.count);
-    
-    // Tentukan warna berdasarkan label (LOKASI atau ORGANISASI)
     const colors = ner_data.map(item => {
         return (item.label === 'ORG') ? 'rgba(231, 76, 60, 0.7)' : 'rgba(0, 102, 204, 0.7)';
     });
@@ -56,36 +55,70 @@ document.addEventListener("DOMContentLoaded", function () {
           label: 'Entitas (Lokasi/Organisasi) Teratas',
           data: counts,
           backgroundColor: colors,
-          borderColor: 'rgba(255, 255, 255, 0)',
-          borderWidth: 1
         }]
       },
       options: {
-        indexAxis: 'y', // Membuatnya jadi Bar Chart horizontal
+        indexAxis: 'y', 
         responsive: true,
         plugins: {
-          legend: {
-            display: false // Sembunyikan legenda
-          },
-          title: {
-            display: true,
-            text: 'Entitas yang Paling Sering Disebutkan'
-          }
-        },
-        scales: {
-          x: {
-            beginAtZero: true
-          }
+          legend: { display: false },
+          title: { display: true, text: 'Entitas yang Paling Sering Disebutkan' }
         }
       }
     });
   }
 
-  // --- 3. Fungsi Klik Word Cloud ---
+  // --- 3. Inisialisasi Doughnut Chart Media (BARU) ---
+  if (media_data.length > 0) {
+    const ctxMedia = document.getElementById('mediaChartCanvas').getContext('2d');
+    
+    // Siapkan data
+    const labels = media_data.map(item => item.media_name);
+    const counts = media_data.map(item => item.count);
+    
+    // Palet warna modern
+    const backgroundColors = [
+      '#0066cc', // BMKG Blue
+      '#2c3e50', // Dark Blue
+      '#3498db', // Light Blue
+      '#95a5a6', // Gray
+      '#7f8c8d'  // Dark Gray
+    ];
+
+    new Chart(ctxMedia, {
+      type: 'doughnut', // Tipe Doughnut
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Jumlah Permintaan',
+          data: counts,
+          backgroundColor: backgroundColors,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'top', // Pindahkan legenda ke atas
+          },
+          title: {
+            display: true,
+            text: 'Top 5 Media Paling Aktif'
+          }
+        }
+      }
+    });
+  }
+  // --- Akhir Blok Baru ---
+
+
+  // --- 4. Fungsi Klik Word Cloud (Tidak berubah) ---
   const searchResults = document.getElementById('searchResults');
   const resultsHeader = document.getElementById('resultsHeader');
   
   const searchByWord = async (word) => {
+    // ... (Fungsi ini tidak berubah) ...
     resultsHeader.innerHTML = `Mencari hasil untuk "<strong>${word}</strong>"...`;
     searchResults.innerHTML = ''; 
     document.getElementById('resultsHeader').scrollIntoView({
@@ -164,14 +197,20 @@ document.addEventListener("DOMContentLoaded", function () {
       padding: 1rem;
       border-radius: 8px;
   }
+  /* (Opsional) Beri tinggi tetap agar chart tidak terlalu besar */
+  #mediaChartCanvas {
+      max-height: 300px;
+  }
 </style>
 
 <div class="dashboard-container">
   <h1>Dasbor Analisis NLP</h1>
   <p class="text-muted mb-4">Analisis otomatis dari semua transkrip wawancara.</p>
   
+  <!-- Grid untuk menata layout -->
   <div class="row g-4">
     
+    <!-- Kolom Kiri: Word Cloud -->
     <div class="col-lg-7">
       <h3 class="h5">Topik & Kata Kunci Teratas (TF-IDF)</h3>
       <div class="chart-container">
@@ -179,14 +218,25 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
     </div>
     
+    <!-- Kolom Kanan: NER Chart & Media Chart -->
     <div class="col-lg-5">
+      
+      <!-- Chart 1: NER -->
       <h3 class="h5">Lokasi & Organisasi Teratas (NER)</h3>
-      <div class="chart-container">
+      <div class="chart-container mb-4"> <!-- Tambah margin bawah -->
           <canvas id="nerChartCanvas"></canvas>
       </div>
+
+      <!-- Chart 2: Media (BARU) -->
+      <h3 class="h5">Media Paling Aktif</h3>
+      <div class="chart-container">
+          <canvas id="mediaChartCanvas"></canvas>
+      </div>
+      
     </div>
   </div>
 
+  <!-- Hasil Pencarian (dari klik Word Cloud) -->
   <div class="search-results-container">
     <h3 id="resultsHeader" class="mt-5 mb-3">Hasil Pencarian</h3>
     <div id="searchResults">
