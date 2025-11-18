@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // --- Data dari Python ---
   const keywords = {{ keywords_json | safe }};
   const ner_data = {{ ner_json | safe }};
-  const media_data = {{ media_json | safe }};
+  const media_data = {{ media_json | safe }}; // <-- DATA BARU
 
   // --- Ambil Referensi Elemen ---
   const dropdownButton = document.getElementById('analysisDropdownButton');
@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // --- 2. Inisialisasi Bar Chart NER ---
+  // --- 2. Inisialisasi Bar Chart NER (Tidak berubah) ---
   if (ner_data.length > 0) {
     const ctx = document.getElementById('nerChartCanvas').getContext('2d');
     const labels = ner_data.map(item => item.text);
@@ -120,43 +120,54 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // --- 3. Inisialisasi Doughnut Chart Media ---
+  // --- 3. Inisialisasi Bar Chart Media (DIUBAH) ---
   if (media_data.length > 0) {
     const ctxMedia = document.getElementById('mediaChartCanvas').getContext('2d');
+    
+    // Siapkan data
     const labels = media_data.map(item => item.media_name);
     const counts = media_data.map(item => item.count);
-    const backgroundColors = ['#0066cc', '#2c3e50', '#3498db', '#95a5a6', '#7f8c8d'];
-
+    
     new Chart(ctxMedia, {
-      type: 'doughnut',
+      type: 'bar', // <-- DIUBAH DARI 'doughnut'
       data: {
         labels: labels,
         datasets: [{
           label: 'Jumlah Permintaan',
           data: counts,
-          backgroundColor: backgroundColors,
-          hoverOffset: 4
+          backgroundColor: '#0066cc', // <-- DIUBAH (Satu warna lebih rapi)
         }]
       },
       options: {
+        indexAxis: 'y', // <-- DITAMBAHKAN (Untuk Bar Horizontal)
         responsive: true,
         plugins: {
-          legend: { position: 'top' },
-          title: { display: true, text: 'Top 5 Media Paling Aktif' }
+          legend: {
+            display: false // <-- DIUBAH (Tidak perlu legenda)
+          },
+          title: {
+            display: true,
+            text: 'Top 5 Media Paling Aktif'
+          }
+        },
+        scales: { // <-- DITAMBAHKAN (Agar sumbu X mulai dari 0)
+          x: {
+            beginAtZero: true
+          }
         }
       }
     });
   }
+  // --- Akhir Blok Perubahan ---
 
-  // --- 4. Fungsi Klik Word Cloud (Dengan Auto-Scroll) ---
+
+  // --- 4. Fungsi Klik Word Cloud (Tidak berubah) ---
   const searchResults = document.getElementById('searchResults');
   const resultsHeader = document.getElementById('resultsHeader');
   
   const searchByWord = async (word) => {
     resultsHeader.innerHTML = `Mencari hasil untuk "<strong>${word}</strong>"...`;
     searchResults.innerHTML = ''; 
-    
-    // --- PERBAIKAN AUTO-SCROLL ---
     document.getElementById('resultsHeader').scrollIntoView({
       behavior: 'smooth',
       block: 'start'
@@ -233,9 +244,6 @@ document.addEventListener("DOMContentLoaded", function () {
       padding: 1rem;
       border-radius: 8px;
   }
-  #mediaChartCanvas {
-      max-height: 300px;
-  }
   
   /* --- STYLE BARU UNTUK DROPDOWN --- */
   .analysis-content {
@@ -271,7 +279,7 @@ document.addEventListener("DOMContentLoaded", function () {
   <h1>Dasbor Analisis NLP</h1>
   <p class="text-muted mb-4">Analisis otomatis dari semua transkrip wawancara.</p>
   
-  <!-- === PERUBAHAN 1: DROPDOWN SELEKTOR === -->
+  <!-- === DROPDOWN SELEKTOR === -->
   <div class="dropdown mb-4">
     <button class="btn btn-light dropdown-toggle analysis-dropdown-btn" type="button" id="analysisDropdownButton" data-bs-toggle="dropdown" aria-expanded="false">
       Pilih Analisis
@@ -283,7 +291,7 @@ document.addEventListener("DOMContentLoaded", function () {
     </ul>
   </div>
 
-  <!-- === PERUBAHAN 2: WRAPPER UNTUK SETIAP CHART === -->
+  <!-- === WRAPPER UNTUK SETIAP CHART === -->
 
   <!-- Kolom Kiri: Word Cloud -->
   <div id="wordCloudWrapper" class="analysis-content">
@@ -304,6 +312,7 @@ document.addEventListener("DOMContentLoaded", function () {
   <div id="mediaChartWrapper" class="analysis-content">
     <h3 class="h5">Media Paling Aktif</h3>
     <div class="chart-container">
+        <!-- Canvas ini sekarang akan dirender sebagai bar chart -->
         <canvas id="mediaChartCanvas"></canvas>
     </div>
   </div>
